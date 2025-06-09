@@ -172,6 +172,19 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     UsbPrinterImageHelper.printImageUri(reactApplicationContext, imageUri, promise, device)
   }
 
+  override fun printHtml(html: String, productId: Double, promise: Promise) {
+    val checker = UsbDevicePermissionChecker(reactApplicationContext)
+    val device = checker.checkDeviceAndPermission(productId.toInt())
+    if (device == null) {
+      val result = Arguments.createMap()
+      result.putBoolean("success", false)
+      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
+      promise.resolve(result)
+      return
+    }
+    UsbPrinterHtmlHelper.printHtml(reactApplicationContext, html, promise, device)
+  }
+
   companion object {
     const val NAME = "UsbPrinter"
     private const val ACTION_USB_PERMISSION = "com.usbprinter.USB_PERMISSION"

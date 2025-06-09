@@ -35,6 +35,7 @@ export interface Spec extends TurboModule {
   sendRawData(data: string, productId: number): Promise<PrinterResult>;
   printImageBase64(base64: string, productId: number): Promise<PrinterResult>;
   printImageUri(uri: string, productId: number): Promise<PrinterResult>;
+  printHtml(html: string, productId: number): Promise<PrinterResult>;
 }
 
 const UsbPrinter = TurboModuleRegistry.getEnforcing<Spec>('UsbPrinter');

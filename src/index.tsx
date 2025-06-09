@@ -49,3 +49,7 @@ export async function printImageBase64(base64: string, productId: number) {
 export async function printImageUri(uri: string, productId: number) {
   return UsbPrinter.printImageUri(uri, productId);
 }
+
+export async function printHtml(html: string, productId: number) {
+  return UsbPrinter.printHtml(html, productId);
+}
