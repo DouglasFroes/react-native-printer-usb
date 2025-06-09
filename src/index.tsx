@@ -41,3 +41,11 @@ export async function off(productId: number) {
 export async function sendRawData(data: string, productId: number) {
   return UsbPrinter.sendRawData(data, productId);
 }
+
+export async function printImageBase64(base64: string, productId: number) {
+  return UsbPrinter.printImageBase64(base64, productId);
+}
+
+export async function printImageUri(uri: string, productId: number) {
+  return UsbPrinter.printImageUri(uri, productId);
+}

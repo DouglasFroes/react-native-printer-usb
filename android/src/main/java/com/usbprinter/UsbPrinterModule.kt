@@ -146,6 +146,32 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     UsbPrinterRawHelper.sendRawData(reactApplicationContext, base64Data, promise, device)
   }
 
+  override fun printImageBase64(base64Image: String, productId: Double, promise: Promise) {
+    val checker = UsbDevicePermissionChecker(reactApplicationContext)
+    val device = checker.checkDeviceAndPermission(productId.toInt())
+    if (device == null) {
+      val result = Arguments.createMap()
+      result.putBoolean("success", false)
+      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
+      promise.resolve(result)
+      return
+    }
+    UsbPrinterImageHelper.printImageBase64(reactApplicationContext, base64Image, promise, device)
+  }
+
+  override fun printImageUri(imageUri: String, productId: Double, promise: Promise) {
+    val checker = UsbDevicePermissionChecker(reactApplicationContext)
+    val device = checker.checkDeviceAndPermission(productId.toInt())
+    if (device == null) {
+      val result = Arguments.createMap()
+      result.putBoolean("success", false)
+      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
+      promise.resolve(result)
+      return
+    }
+    UsbPrinterImageHelper.printImageUri(reactApplicationContext, imageUri, promise, device)
+  }
+
   companion object {
     const val NAME = "UsbPrinter"
     private const val ACTION_USB_PERMISSION = "com.usbprinter.USB_PERMISSION"
