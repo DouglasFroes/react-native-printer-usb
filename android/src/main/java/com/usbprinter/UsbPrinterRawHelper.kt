@@ -6,11 +6,14 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 
 /**
- * Desconecta da impressora USB, libera recursos e encerra a sessão USB.
- * Observação: Não desliga fisicamente a impressora, apenas envia comandos de avanço/corte e fecha a conexão.
+ * Envia dados brutos (comando ESC/POS em base64) diretamente para a impressora USB.
+ * @param context Contexto Android
+ * @param base64Data Dados ESC/POS codificados em base64
+ * @param promise Promise para retorno do resultado
+ * @param device UsbDevice já autorizado
  */
-object UsbPrinterOffHelper {
-    fun off(context: Context, promise: Promise, device: android.hardware.usb.UsbDevice) {
+object UsbPrinterRawHelper {
+    fun sendRawData(context: Context, base64Data: String, promise: Promise, device: android.hardware.usb.UsbDevice) {
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
@@ -19,15 +22,13 @@ object UsbPrinterOffHelper {
             val usbInterface = device.getInterface(0)
             val endpoint = usbInterface.getEndpoint(0)
             connection.claimInterface(usbInterface, true)
-            val cut = byteArrayOf(0x1D, 0x56, 0x00)
-            val feed = byteArrayOf(0x1B, 0x64, 0x05)
-            connection.bulkTransfer(endpoint, feed, feed.size, 2000)
-            connection.bulkTransfer(endpoint, cut, cut.size, 2000)
-            result.putBoolean("success", true)
-            result.putString("message", "Comando de desligar enviado (avanço e corte). Conexão encerrada.")
+            val rawBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val transferred = connection.bulkTransfer(endpoint, rawBytes, rawBytes.size, 2000)
+            result.putBoolean("success", transferred == rawBytes.size)
+            result.putString("message", if (transferred == rawBytes.size) "Dados enviados com sucesso." else "Nem todos os dados foram enviados.")
         } catch (e: Exception) {
             result.putBoolean("success", false)
-            result.putString("message", "Erro ao desligar: ${e.localizedMessage}")
+            result.putString("message", "Erro ao enviar dados brutos: ${e.localizedMessage}")
         } finally {
             try {
                 connection?.releaseInterface(device.getInterface(0))

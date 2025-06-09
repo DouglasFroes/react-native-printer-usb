@@ -14,7 +14,7 @@ object UsbPrinterCleanHelper {
      *
      * Observação: Para limpeza total, recomenda-se também limpar variáveis/estados do lado do app após chamar este método.
      */
-    fun clean(context: Context, productId: Int, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun clean(context: Context, promise: Promise, device: android.hardware.usb.UsbDevice) {
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         val result = Arguments.createMap()

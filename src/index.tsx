@@ -37,3 +37,7 @@ export async function clean(productId: number) {
 export async function off(productId: number) {
   return UsbPrinter.off(productId);
 }
+
+export async function sendRawData(data: string, productId: number) {
+  return UsbPrinter.sendRawData(data, productId);
+}

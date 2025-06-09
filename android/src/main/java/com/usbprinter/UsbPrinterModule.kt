@@ -78,7 +78,7 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    UsbPrinterCutHelper.printCut(reactApplicationContext, tailingLine, beep, productId.toInt(), promise, device)
+    UsbPrinterCutHelper.printCut(reactApplicationContext, tailingLine, beep, promise, device)
   }
 
   override fun barCode(text: String, width: Double, height: Double, productId: Double, promise: Promise) {
@@ -91,7 +91,7 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    UsbPrinterBarcodeHelper.printBarcode(reactApplicationContext, text, width, height, productId.toInt(), promise, device)
+    UsbPrinterBarcodeHelper.printBarcode(reactApplicationContext, text, width, height, promise, device)
   }
 
   override fun qrCode(text: String, size: Double, productId: Double, promise: Promise) {
@@ -104,7 +104,7 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    UsbPrinterQrCodeHelper.printQrCode(reactApplicationContext, text, size, productId.toInt(), promise, device)
+    UsbPrinterQrCodeHelper.printQrCode(reactApplicationContext, text, size, promise, device)
   }
 
   override fun clean(productId: Double, promise: Promise) {
@@ -117,7 +117,7 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    UsbPrinterCleanHelper.clean(reactApplicationContext, productId.toInt(), promise, device)
+    UsbPrinterCleanHelper.clean(reactApplicationContext, promise, device)
   }
 
   override fun off(productId: Double, promise: Promise) {
@@ -130,7 +130,20 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    UsbPrinterOffHelper.off(reactApplicationContext, productId.toInt(), promise, device)
+    UsbPrinterOffHelper.off(reactApplicationContext, promise, device)
+  }
+
+  override fun sendRawData(base64Data: String, productId: Double, promise: Promise) {
+    val checker = UsbDevicePermissionChecker(reactApplicationContext)
+    val device = checker.checkDeviceAndPermission(productId.toInt())
+    if (device == null) {
+      val result = Arguments.createMap()
+      result.putBoolean("success", false)
+      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
+      promise.resolve(result)
+      return
+    }
+    UsbPrinterRawHelper.sendRawData(reactApplicationContext, base64Data, promise, device)
   }
 
   companion object {

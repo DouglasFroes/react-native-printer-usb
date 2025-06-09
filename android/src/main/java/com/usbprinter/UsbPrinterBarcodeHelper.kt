@@ -6,10 +6,12 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 
 object UsbPrinterBarcodeHelper {
-    fun printBarcode(context: Context, text: String, width: Double, height: Double, productId: Int, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun printBarcode(context: Context, text: String, width: Double, height: Double, promise: Promise, device: android.hardware.usb.UsbDevice) {
+        val result = Arguments.createMap()
+        var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
             val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-            val connection = usbManager.openDevice(device)
+            connection = usbManager.openDevice(device)
             val usbInterface = device.getInterface(0)
             val endpoint = usbInterface.getEndpoint(0)
             connection.claimInterface(usbInterface, true)
@@ -19,16 +21,18 @@ object UsbPrinterBarcodeHelper {
             connection.bulkTransfer(endpoint, setH, setH.size, 2000)
             connection.bulkTransfer(endpoint, setW, setW.size, 2000)
             connection.bulkTransfer(endpoint, selectCode128 + text.toByteArray(Charsets.UTF_8), selectCode128.size + text.length, 2000)
-            connection.releaseInterface(usbInterface)
-            connection.close()
-            val result = Arguments.createMap()
             result.putBoolean("success", true)
-            result.putString("message", "Código de barras impresso.")
-            promise.resolve(result)
+            result.putString("message", "Código de barras impresso com sucesso.")
         } catch (e: Exception) {
-            val result = Arguments.createMap()
             result.putBoolean("success", false)
             result.putString("message", "Erro ao imprimir código de barras: ${e.localizedMessage}")
+        } finally {
+            try {
+                connection?.releaseInterface(device.getInterface(0))
+            } catch (_: Exception) {}
+            try {
+                connection?.close()
+            } catch (_: Exception) {}
             promise.resolve(result)
         }
     }

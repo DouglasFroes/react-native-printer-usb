@@ -32,6 +32,7 @@ export interface Spec extends TurboModule {
   qrCode(text: string, size: number, productId: number): Promise<PrinterResult>;
   clean(productId: number): Promise<PrinterResult>;
   off(productId: number): Promise<PrinterResult>;
+  sendRawData(data: string, productId: number): Promise<PrinterResult>;
 }
 
 const UsbPrinter = TurboModuleRegistry.getEnforcing<Spec>('UsbPrinter');
