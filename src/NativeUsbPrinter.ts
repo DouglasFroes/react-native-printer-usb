@@ -1,6 +1,18 @@
 import type { TurboModule } from 'react-native';
 import { TurboModuleRegistry } from 'react-native';
 
+export interface PrintTextOptions {
+  text: string;
+  productId: number;
+  size?: 1 | 2 | 4;
+  align?: 'left' | 'center' | 'right';
+  encoding?: string;
+  bold?: boolean;
+  font?: 'A' | 'B' | 'C';
+  cut?: boolean;
+  beep?: boolean;
+}
+
 export interface UsbDeviceInfo {
   deviceName: string;
   deviceId: number;
@@ -17,7 +29,7 @@ export interface PrinterResult {
 
 export interface Spec extends TurboModule {
   getList(): UsbDeviceInfo[];
-  printText(text: string, productId: number): Promise<PrinterResult>;
+  printText(options: PrintTextOptions): Promise<PrinterResult>;
   printCut(
     tailingLine: boolean,
     beep: boolean,

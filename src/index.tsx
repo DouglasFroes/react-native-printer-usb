@@ -1,12 +1,12 @@
-import UsbPrinter from './NativeUsbPrinter';
+import UsbPrinter, { type PrintTextOptions } from './NativeUsbPrinter';
 export type { PrinterResult, UsbDeviceInfo } from './NativeUsbPrinter';
 
 export function getList(): import('./NativeUsbPrinter').UsbDeviceInfo[] {
   return UsbPrinter.getList();
 }
 
-export async function printText(text: string, productId: number) {
-  return UsbPrinter.printText(text, productId);
+export async function printText(options: PrintTextOptions) {
+  return UsbPrinter.printText(options);
 }
 
 export async function printCut(

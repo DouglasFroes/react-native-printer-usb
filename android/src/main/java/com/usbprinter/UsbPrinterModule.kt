@@ -9,6 +9,7 @@ import com.facebook.react.bridge.WritableNativeMap
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReadableMap
 
 import android.hardware.usb.UsbDevice
 import android.app.PendingIntent
@@ -23,7 +24,6 @@ import android.hardware.usb.UsbDeviceConnection
 
 import com.usbprinter.UsbDeviceHelper
 import com.usbprinter.UsbDevicePermissionChecker
-import com.usbprinter.UsbPrinterTextHelper
 
 @ReactModule(name = UsbPrinterModule.NAME)
 class UsbPrinterModule(reactContext: ReactApplicationContext) :
@@ -53,7 +53,9 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     return array
   }
 
-  override fun printText(text: String, productId: Double, promise: Promise) {
+
+  override fun printText(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
     val checker = UsbDevicePermissionChecker(reactApplicationContext)
     val device = checker.checkDeviceAndPermission(productId.toInt())
     if (device == null) {
@@ -63,8 +65,8 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       promise.resolve(result)
       return
     }
-    val printerTextHelper = UsbPrinterTextHelper(reactApplicationContext)
-    val result = printerTextHelper.printText(text, device)
+    val printerTextHelper = com.usbprinter.UsbPrinterTextHelper(reactApplicationContext)
+    val result = printerTextHelper.printText(options, device)
     promise.resolve(result)
   }
 
