@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { getList, printText } from 'react-native-usb-printer';
+import {
+  barCode,
+  clean,
+  getList,
+  off,
+  printCut,
+  printText,
+  qrCode,
+} from 'react-native-usb-printer';
+import { commands } from '../../src/utils/commands';
 
 export default function App() {
   const [devices, setDevices] = useState<any[]>([]);
@@ -26,17 +35,94 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imprimir.');
       return;
     }
+
     const result = await printText(
-      'Teste de impressão USB!',
+      `${commands.text_format.txt_normal}${commands.text_format.txt_align_lt}Titulo em destaque`,
       selectedProductId
     );
+    // await printText(
+    //   `${commands.text_format.txt_normal}Linha normal\n${commands.text_format.txt_italic_on}Texto em itálico\n`,
+    //   selectedProductId
+    // );
+    // await printText(
+    //   `${commands.horizontal_line.hr_58mm}${commands.text_format.txt_4square}GRANDE\n${commands.text_format.txt_normal}`,
+    //   selectedProductId
+    // );
+    // const result = await printText(
+    //   'Final do recibo\n' + commands.paper.paper_cut_a,
+    //   selectedProductId
+    // );
+
     if (result.success) {
-      setPrintResult('Impressão realizada com sucesso!');
+      setPrintResult(result.message || 'Impressão realizada com sucesso!');
     } else {
       setPrintResult(
         'Erro ao imprimir: ' + (result.message || 'Erro desconhecido')
       );
     }
+  };
+
+  const handlePrintCut = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para cortar.');
+      return;
+    }
+    const result = await printCut(true, true, selectedProductId);
+    setPrintResult(
+      result.success ? 'Corte realizado!' : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handleBarCode = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para código de barras.');
+      return;
+    }
+    const result = await barCode('123456789012', 2, 80, selectedProductId);
+    setPrintResult(
+      result.success
+        ? 'Código de barras impresso!'
+        : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handleQrCode = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para QR Code.');
+      return;
+    }
+    const result = await qrCode(
+      'https://reactnative.dev',
+      6,
+      selectedProductId
+    );
+    setPrintResult(
+      result.success ? 'QR Code impresso!' : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handleClean = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para limpar.');
+      return;
+    }
+    const result = await clean(selectedProductId);
+    setPrintResult(
+      result.success ? 'Limpeza realizada!' : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handleOff = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para desligar.');
+      return;
+    }
+    const result = await off(selectedProductId);
+    setPrintResult(
+      result.success
+        ? 'Comando de desligar enviado!'
+        : 'Erro: ' + (result.message || '')
+    );
   };
 
   return (
@@ -51,6 +137,20 @@ export default function App() {
         />
         <View style={styles.buttonSpacer} />
         <Button title="Imprimir texto" onPress={handlePrint} color="#388e3c" />
+        <View style={styles.buttonSpacer} />
+        <Button title="Cortar" onPress={handlePrintCut} color="#ff9800" />
+        <View style={styles.buttonSpacer} />
+        <Button
+          title="Código de Barras"
+          onPress={handleBarCode}
+          color="#6a1b9a"
+        />
+        <View style={styles.buttonSpacer} />
+        <Button title="QR Code" onPress={handleQrCode} color="#0288d1" />
+        <View style={styles.buttonSpacer} />
+        <Button title="Limpar" onPress={handleClean} color="#607d8b" />
+        <View style={styles.buttonSpacer} />
+        <Button title="Desligar" onPress={handleOff} color="#b71c1c" />
       </View>
       {printResult && (
         <Text

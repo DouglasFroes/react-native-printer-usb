@@ -10,14 +10,28 @@ export interface UsbDeviceInfo {
   productName?: string;
 }
 
-export interface PrinterTestResult {
+export interface PrinterResult {
   success: boolean;
   message?: string;
 }
 
 export interface Spec extends TurboModule {
   getList(): UsbDeviceInfo[];
-  printText(text: string, productId: number): Promise<any>;
+  printText(text: string, productId: number): Promise<PrinterResult>;
+  printCut(
+    tailingLine: boolean,
+    beep: boolean,
+    productId: number
+  ): Promise<PrinterResult>;
+  barCode(
+    text: string,
+    width: number,
+    height: number,
+    productId: number
+  ): Promise<PrinterResult>;
+  qrCode(text: string, size: number, productId: number): Promise<PrinterResult>;
+  clean(productId: number): Promise<PrinterResult>;
+  off(productId: number): Promise<PrinterResult>;
 }
 
 const UsbPrinter = TurboModuleRegistry.getEnforcing<Spec>('UsbPrinter');
