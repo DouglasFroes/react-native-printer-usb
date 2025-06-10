@@ -36,7 +36,6 @@ type PrinterOptionsRawData = {
   beep?: boolean;
   cut?: boolean;
   tailingLine?: boolean;
-  encoding?: string;
 };
 
 export async function sendRawData(data: PrinterOptionsRawData) {

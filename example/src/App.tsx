@@ -1,5 +1,12 @@
-import { useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {
   barCode,
   getList,
@@ -14,6 +21,89 @@ import {
 } from 'react-native-usb-printer';
 import { commands } from '../../src/utils/commands';
 import { imageBase64 } from './img64';
+
+function AppButton({
+  title,
+  onPress,
+  color,
+  disabled,
+}: {
+  title: string;
+  onPress: () => void;
+  color?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.button,
+        color ? { backgroundColor: color } : {},
+        disabled && styles.buttonDisabled,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={disabled}
+    >
+      <Text style={styles.buttonText}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function DeviceCard({
+  device,
+  selected,
+  onSelect,
+}: {
+  device: any;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <View
+      style={[
+        styles.deviceCard,
+        selected && styles.deviceCardSelected,
+        selected && styles.deviceCardShadow,
+      ]}
+    >
+      <Text style={styles.deviceTitle}>
+        {device.productName || device.deviceName}
+      </Text>
+      <View style={styles.deviceInfoRow}>
+        <Text style={styles.deviceInfoLabel}>Vendor ID:</Text>
+        <Text style={styles.deviceValue}>{device.vendorId}</Text>
+      </View>
+      <View style={styles.deviceInfoRow}>
+        <Text style={styles.deviceInfoLabel}>Product ID:</Text>
+        <Text style={styles.deviceValue}>{device.productId}</Text>
+      </View>
+      <View style={styles.deviceInfoRow}>
+        <Text style={styles.deviceInfoLabel}>Device ID:</Text>
+        <Text style={styles.deviceValue}>{device.deviceId}</Text>
+      </View>
+      {device.manufacturerName ? (
+        <View style={styles.deviceInfoRow}>
+          <Text style={styles.deviceInfoLabel}>Fabricante:</Text>
+          <Text style={styles.deviceValue}>{device.manufacturerName}</Text>
+        </View>
+      ) : null}
+      {device.serialNumber ? (
+        <View style={styles.deviceInfoRow}>
+          <Text style={styles.deviceInfoLabel}>Serial:</Text>
+          <Text style={styles.deviceValue}>{device.serialNumber}</Text>
+        </View>
+      ) : null}
+      <View style={styles.selectButtonWrapper}>
+        <AppButton
+          title={selected ? 'Selecionado' : 'Selecionar'}
+          onPress={onSelect}
+          color={selected ? '#1976d2' : '#888'}
+          disabled={selected}
+        />
+      </View>
+    </View>
+  );
+}
 
 export default function App() {
   const [devices, setDevices] = useState<any[]>([]);
@@ -39,23 +129,26 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imprimir.');
       return;
     }
-    console.log('Selected Product ID:', selectedProductId);
-    // Exemplo de impressão de texto formatado
-    const result = await printText({
-      text: 'Hello, World!\nImpressão de texto com React Native USB Printer\n',
-      align: 'center',
-      // encoding aceita acentuação, mas é necessário que a impressora suporte
-      encoding: 'CP850',
-      productId: selectedProductId,
-      // cut: true,
-      beep: false,
-    });
-    console.log('Print Result:', result);
-    setPrintResult(
-      result.success
-        ? 'Texto impresso com sucesso!'
-        : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      console.log('Selected Product ID:', selectedProductId);
+      const result = await printText({
+        text: 'Hello, World!\nImpressao de texto com React Native USB Printer\n',
+        align: 'center',
+        productId: selectedProductId,
+        cut: true,
+        beep: false,
+        tailingLine: true,
+      });
+      console.log('Print Result:', result);
+      setPrintResult(
+        result.success
+          ? 'Texto impresso com sucesso!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePrintCut = async () => {
@@ -63,10 +156,15 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para cortar.');
       return;
     }
-    const result = await printCut(true, true, selectedProductId);
-    setPrintResult(
-      result.success ? 'Corte realizado!' : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const result = await printCut(true, true, selectedProductId);
+      setPrintResult(
+        result.success ? 'Corte realizado!' : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBarCode = async () => {
@@ -74,17 +172,22 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para código de barras.');
       return;
     }
-    const result = await barCode({
-      text: '123456789012',
-      width: 2,
-      height: 80,
-      productId: selectedProductId,
-    });
-    setPrintResult(
-      result.success
-        ? 'Código de barras impresso!'
-        : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const result = await barCode({
+        text: '123456789012',
+        width: 2,
+        height: 80,
+        productId: selectedProductId,
+      });
+      setPrintResult(
+        result.success
+          ? 'Código de barras impresso!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQrCode = async () => {
@@ -92,15 +195,20 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para QR Code.');
       return;
     }
-    const result = await qrCode({
-      text: 'https://reactnative.dev',
-      size: 6,
-      productId: selectedProductId,
-      align: 'center',
-    });
-    setPrintResult(
-      result.success ? 'QR Code impresso!' : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const result = await qrCode({
+        text: 'https://reactnative.dev',
+        size: 6,
+        productId: selectedProductId,
+        align: 'center',
+      });
+      setPrintResult(
+        result.success ? 'QR Code impresso!' : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReset = async () => {
@@ -108,12 +216,17 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para desligar.');
       return;
     }
-    const result = await reset(selectedProductId);
-    setPrintResult(
-      result.success
-        ? 'Comando de desligar enviado!'
-        : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const result = await reset(selectedProductId);
+      setPrintResult(
+        result.success
+          ? 'Comando de desligar enviado!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePrintImageBase64 = async () => {
@@ -121,17 +234,21 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imagem base64.');
       return;
     }
-    // Exemplo base64 PNG (imagem preta 1x1)
-    const result = await printImageBase64({
-      base64Image: imageBase64,
-      align: 'center',
-      productId: selectedProductId,
-    });
-    setPrintResult(
-      result.success
-        ? 'Imagem (base64) impressa!'
-        : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const result = await printImageBase64({
+        base64Image: imageBase64,
+        align: 'center',
+        productId: selectedProductId,
+      });
+      setPrintResult(
+        result.success
+          ? 'Imagem (base64) impressa!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePrintImageUri = async () => {
@@ -139,18 +256,22 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imagem URI.');
       return;
     }
-    // Exemplo de URI local (ajuste conforme necessário)
-    const imageUri = 'https://avatars.githubusercontent.com/u/194425997';
-    const result = await printImageUri({
-      imageUri,
-      align: 'center',
-      productId: selectedProductId,
-    });
-    setPrintResult(
-      result.success
-        ? 'Imagem (URI) impressa!'
-        : 'Erro: ' + (result.message || '')
-    );
+    setLoading(true);
+    try {
+      const imageUri = 'https://avatars.githubusercontent.com/u/194425997';
+      const result = await printImageUri({
+        imageUri,
+        align: 'center',
+        productId: selectedProductId,
+      });
+      setPrintResult(
+        result.success
+          ? 'Imagem (URI) impressa!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePrintHtml = async () => {
@@ -158,24 +279,28 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para HTML.');
       return;
     }
+    setLoading(true);
+    try {
+      const html = `<div style="text-align: center; font-family: Arial, sans-serif;">
+        <h1>Impressão HTML</h1>
+        <p>Este é um exemplo de impressão HTML com React Native USB Printer.</p>
+        <p style="font-size: 20px; color: #1976d2;">Texto centralizado</p>
+        <img src="https://avatars.githubusercontent.com/u/194425997" alt="Logo" style="width: 100px; height: 100px; margin: 10px 0;" />
+        <p style="font-size: 16px; color: #666;">Você pode usar estilos CSS para formatar o conteúdo.</p>
+        </div>`;
 
-    const html = `<div style="text-align: center; font-family: Arial, sans-serif;">
-      <h1>Impressão HTML</h1>
-      <p>Este é um exemplo de impressão HTML com React Native USB Printer.</p>
-      <p style="font-size: 20px; color: #1976d2;">Texto centralizado</p>
-      <img src="https://avatars.githubusercontent.com/u/194425997" alt="Logo" style="width: 100px; height: 100px; margin: 10px 0;" />
-      <p style="font-size: 16px; color: #666;">Você pode usar estilos CSS para formatar o conteúdo.</p>
-      </div>`;
-
-    const result = await printHtml({
-      html,
-      align: 'center',
-      htmlHeight: 760,
-      productId: selectedProductId,
-    });
-    setPrintResult(
-      result.success ? 'HTML impresso!' : 'Erro: ' + (result.message || '')
-    );
+      const result = await printHtml({
+        html,
+        align: 'center',
+        htmlHeight: 760,
+        productId: selectedProductId,
+      });
+      setPrintResult(
+        result.success ? 'HTML impresso!' : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendRawData = async () => {
@@ -183,68 +308,84 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para enviar RAW.');
       return;
     }
+    setLoading(true);
+    try {
+      const textPrint = `${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}${commands.text_format.txt_bold_on}DSF${commands.text_format.txt_bold_off}
+        ${commands.text_format.txt_font_b}TEST
+        ${commands.text_format.txt_font_a}Dodo
+        ${commands.text_format.txt_align_lt}${commands.text_format.txt_font_a}Café Maçã Ç Ñ ü \n`;
 
-    const textPrint = `${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}${commands.text_format.txt_bold_on}DSF${commands.text_format.txt_bold_off}
-      ${commands.text_format.txt_font_b}TEST
-      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_c}26
-      -${commands.text_format.txt_font_a}Dodo
-      ${commands.text_format.txt_align_lt}${commands.text_format.txt_font_a}Café Maçã Ç Ñ ü \n`;
-
-    const result = await sendRawData({
-      productId: selectedProductId,
-      text: textPrint,
-      cut: true,
-      tailingLine: true,
-      encoding: 'utf8',
-    });
-    setPrintResult(
-      result.success
-        ? 'RAW enviado com sucesso!'
-        : 'Erro: ' + (result.message || '')
-    );
+      const result = await sendRawData({
+        productId: selectedProductId,
+        text: textPrint,
+        cut: true,
+        tailingLine: true,
+      });
+      setPrintResult(
+        result.success
+          ? 'RAW enviado com sucesso!'
+          : 'Erro: ' + (result.message || '')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    refreshDevices();
+  }, []);
 
   return (
     <View style={styles.container}>
+      {/* Loading overlay */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#1976d2" />
+        </View>
+      )}
       <Text style={styles.title}>Impressora USB</Text>
       <View style={styles.buttonRow}>
-        <Button
+        <AppButton
           title={loading ? 'Buscando...' : 'Buscar USB'}
           onPress={refreshDevices}
           disabled={loading}
           color="#1976d2"
         />
         <View style={styles.buttonSpacer} />
-        <Button title="Imprimir texto" onPress={handlePrint} color="#388e3c" />
+        <AppButton
+          title="Imprimir texto"
+          onPress={handlePrint}
+          color="#388e3c"
+        />
         <View style={styles.buttonSpacer} />
-        <Button title="Cortar" onPress={handlePrintCut} color="#ff9800" />
+        <AppButton title="Cortar" onPress={handlePrintCut} color="#ff9800" />
         <View style={styles.buttonSpacer} />
-        <Button
+        <AppButton
           title="Código de Barras"
           onPress={handleBarCode}
           color="#6a1b9a"
         />
         <View style={styles.buttonSpacer} />
-        <Button title="QR Code" onPress={handleQrCode} color="#0288d1" />
+        <AppButton title="QR Code" onPress={handleQrCode} color="#0288d1" />
         <View style={styles.buttonSpacer} />
         <View style={styles.buttonSpacer} />
-        <Button title="Reset" onPress={handleReset} color="#b71c1c" />
+        <AppButton title="Reset" onPress={handleReset} color="#b71c1c" />
         <View style={styles.buttonSpacer} />
-        <Button
+        <AppButton
           title="Imagem Base64"
           onPress={handlePrintImageBase64}
           color="#009688"
         />
         <View style={styles.buttonSpacer} />
-        <Button
+        <AppButton
           title="Imagem URI"
           onPress={handlePrintImageUri}
           color="#8bc34a"
         />
         <View style={styles.buttonSpacer} />
-        <Button title="HTML" onPress={handlePrintHtml} color="#f44336" />
+        <AppButton title="HTML" onPress={handlePrintHtml} color="#f44336" />
         <View style={styles.buttonSpacer} />
-        <Button title="RAW" onPress={handleSendRawData} color="#607d8b" />
+        <AppButton title="RAW" onPress={handleSendRawData} color="#607d8b" />
         <View style={styles.buttonSpacer} />
       </View>
       {printResult && (
@@ -266,53 +407,12 @@ export default function App() {
           <Text style={styles.noDevice}>Nenhum dispositivo encontrado</Text>
         )}
         {devices.map((d, i) => (
-          <View
+          <DeviceCard
             key={i}
-            style={[
-              styles.deviceCard,
-              selectedProductId === d.productId && styles.deviceCardSelected,
-            ]}
-          >
-            <Text style={styles.deviceTitle}>
-              {d.productName || d.deviceName}
-            </Text>
-            <Text style={styles.deviceInfo}>
-              Vendor ID: <Text style={styles.deviceValue}>{d.vendorId}</Text>
-            </Text>
-            <Text style={styles.deviceInfo}>
-              Product ID: <Text style={styles.deviceValue}>{d.productId}</Text>
-            </Text>
-            <Text style={styles.deviceInfo}>
-              Device ID: <Text style={styles.deviceValue}>{d.deviceId}</Text>
-            </Text>
-            {d.manufacturerName && (
-              <Text style={styles.deviceInfo}>
-                Fabricante:{' '}
-                <Text style={styles.deviceValue}>{d.manufacturerName}</Text>
-              </Text>
-            )}
-            {d.productName && (
-              <Text style={styles.deviceInfo}>
-                Produto: <Text style={styles.deviceValue}>{d.productName}</Text>
-              </Text>
-            )}
-            {d.serialNumber && (
-              <Text style={styles.deviceInfo}>
-                Serial: <Text style={styles.deviceValue}>{d.serialNumber}</Text>
-              </Text>
-            )}
-            <View style={styles.selectButtonWrapper}>
-              <Button
-                title={
-                  selectedProductId === d.productId
-                    ? 'Selecionado'
-                    : 'Selecionar'
-                }
-                onPress={() => setSelectedProductId(d.productId)}
-                color={selectedProductId === d.productId ? '#1976d2' : '#888'}
-              />
-            </View>
-          </View>
+            device={d}
+            selected={selectedProductId === d.productId}
+            onSelect={() => setSelectedProductId(d.productId)}
+          />
         ))}
       </ScrollView>
     </View>
@@ -327,6 +427,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f6fa',
     width: '100%',
   },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
@@ -337,12 +448,33 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
   buttonSpacer: {
-    width: 16,
+    width: 0, // Remove espaçamento horizontal extra
+    height: 8, // Espaço vertical entre linhas
+  },
+  button: {
+    width: 180,
+    height: 44,
+    margin: 4,
+    borderRadius: 24,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   result: {
     marginTop: 10,
@@ -381,9 +513,10 @@ const styles = StyleSheet.create({
   },
   deviceCard: {
     marginTop: 12,
-    padding: 14,
+    marginHorizontal: 8,
+    padding: 16,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     borderColor: '#b0bec5',
     backgroundColor: '#fff',
     width: 320,
@@ -397,20 +530,34 @@ const styles = StyleSheet.create({
     borderColor: '#1976d2',
     backgroundColor: '#e3f2fd',
   },
+  deviceCardShadow: {
+    shadowColor: '#1976d2',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   deviceTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1976d2',
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  deviceInfo: {
+  deviceInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  deviceInfoLabel: {
     fontSize: 15,
     color: '#333',
-    marginBottom: 2,
+    fontWeight: '600',
+    minWidth: 90,
   },
   deviceValue: {
     fontWeight: 'bold',
     color: '#222',
+    fontSize: 15,
   },
   selectButtonWrapper: {
     marginTop: 10,

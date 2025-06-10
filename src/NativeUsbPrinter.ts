@@ -11,6 +11,8 @@ export interface PrintTextOptions {
   font?: 'A' | 'B' | 'C';
   cut?: boolean;
   beep?: boolean;
+  tailingLine?: boolean;
+  underline?: boolean;
 }
 
 export interface UsbDeviceInfo {
