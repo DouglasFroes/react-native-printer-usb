@@ -21,8 +21,16 @@ object UsbPrinterImageHelper {
         return try {
             val base64Image = options.getString("base64Image") ?: ""
             val align = if (options.hasKey("align")) options.getString("align") else null
+            // pageWidth vem em mm, converter para pixels (1mm ≈ 7.2px para 203dpi)
+            val pageWidthMm = if (options.hasKey("pageWidth")) options.getInt("pageWidth") else null
+            val pageWidthPx = pageWidthMm?.let { (it * 7.2).toInt() }
             val imageBytes = Base64.decode(base64Image, Base64.DEFAULT)
-            val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            var bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            if (bitmap != null && pageWidthPx != null && bitmap.width != pageWidthPx) {
+                val aspect = bitmap.height.toFloat() / bitmap.width
+                val newHeight = (pageWidthPx * aspect).toInt()
+                bitmap = Bitmap.createScaledBitmap(bitmap, pageWidthPx, newHeight, true)
+            }
             printBitmap(context, bitmap, device, align)
         } catch (e: Exception) {
             val result = Arguments.createMap()
@@ -39,10 +47,18 @@ object UsbPrinterImageHelper {
         return try {
             val imageUri = options.getString("imageUri") ?: ""
             val align = if (options.hasKey("align")) options.getString("align") else null
+            // pageWidth vem em mm, converter para pixels (1mm ≈ 7.2px para 203dpi)
+            val pageWidthMm = if (options.hasKey("pageWidth")) options.getInt("pageWidth") else null
+            val pageWidthPx = pageWidthMm?.let { (it * 7.2).toInt() }
             val uri = Uri.parse(imageUri)
             val inputStream = context.contentResolver.openInputStream(uri)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
+            var bitmap = BitmapFactory.decodeStream(inputStream)
             inputStream?.close()
+            if (bitmap != null && pageWidthPx != null && bitmap.width != pageWidthPx) {
+                val aspect = bitmap.height.toFloat() / bitmap.width
+                val newHeight = (pageWidthPx * aspect).toInt()
+                bitmap = Bitmap.createScaledBitmap(bitmap, pageWidthPx, newHeight, true)
+            }
             printBitmap(context, bitmap, device, align)
         } catch (e: Exception) {
             val result = Arguments.createMap()

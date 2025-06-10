@@ -28,11 +28,10 @@ import com.usbprinter.UsbPrinterTextHelper
 import com.usbprinter.UsbPrinterCutHelper
 import com.usbprinter.UsbPrinterBarcodeHelper
 import com.usbprinter.UsbPrinterQrCodeHelper
-import com.usbprinter.UsbPrinterCleanHelper
-import com.usbprinter.UsbPrinterOffHelper
 import com.usbprinter.UsbPrinterRawHelper
 import com.usbprinter.UsbPrinterImageHelper
 import com.usbprinter.UsbPrinterHtmlHelper
+import com.usbprinter.UsbPrinterResetHelper
 
 @ReactModule(name = UsbPrinterModule.NAME)
 class UsbPrinterModule(reactContext: ReactApplicationContext) :
@@ -115,26 +114,6 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     promise.resolve(result)
   }
 
-  override fun clean(productId: Double, promise: Promise) {
-    val device = getCheckedDevice(productId)
-    if (device == null) {
-      promise.resolve(getDeviceErrorMessage())
-      return
-    }
-    val result = UsbPrinterCleanHelper.clean(reactApplicationContext, device)
-    promise.resolve(result)
-  }
-
-  override fun off(productId: Double, promise: Promise) {
-    val device = getCheckedDevice(productId)
-    if (device == null) {
-      promise.resolve(getDeviceErrorMessage())
-      return
-    }
-    val result = UsbPrinterOffHelper.off(reactApplicationContext, device)
-    promise.resolve(result)
-  }
-
   override fun sendRawData(base64Data: String, productId: Double, promise: Promise) {
     val device = getCheckedDevice(productId)
     if (device == null) {
@@ -175,6 +154,16 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
       return
     }
     val result = UsbPrinterHtmlHelper.printHtml(reactApplicationContext, options, device)
+    promise.resolve(result)
+  }
+
+  override fun reset(productId: Double, promise: Promise) {
+    val device = getCheckedDevice(productId)
+    if (device == null) {
+      promise.resolve(getDeviceErrorMessage())
+      return
+    }
+    val result = UsbPrinterResetHelper.reset(reactApplicationContext, device)
     promise.resolve(result)
   }
 

@@ -1,4 +1,5 @@
 import UsbPrinter, { type PrintTextOptions } from './NativeUsbPrinter';
+import { textTo64Buffer } from './utils/textTo64Buffer';
 export type { PrinterResult, UsbDeviceInfo } from './NativeUsbPrinter';
 
 export function getList(): import('./NativeUsbPrinter').UsbDeviceInfo[] {
@@ -29,16 +30,25 @@ export async function qrCode(
   return UsbPrinter.qrCode(options);
 }
 
-export async function clean(productId: number) {
-  return UsbPrinter.clean(productId);
-}
+type PrinterOptionsRawData = {
+  text: string;
+  productId: number;
+  beep?: boolean;
+  cut?: boolean;
+  tailingLine?: boolean;
+  encoding?: string;
+};
 
-export async function off(productId: number) {
-  return UsbPrinter.off(productId);
-}
-
-export async function sendRawData(data: string, productId: number) {
-  return UsbPrinter.sendRawData(data, productId);
+export async function sendRawData(data: PrinterOptionsRawData) {
+  return UsbPrinter.sendRawData(
+    textTo64Buffer(data.text, {
+      beep: data.beep,
+      cut: data.cut,
+      tailingLine: data.tailingLine,
+      encoding: data.encoding,
+    }),
+    data.productId
+  );
 }
 
 export async function printImageBase64(
@@ -57,4 +67,8 @@ export async function printHtml(
   options: import('./NativeUsbPrinter').PrintHtmlOptions
 ) {
   return UsbPrinter.printHtml(options);
+}
+
+export async function reset(productId: number) {
+  return UsbPrinter.reset(productId);
 }

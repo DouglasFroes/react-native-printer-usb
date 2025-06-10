@@ -20,12 +20,16 @@ object UsbPrinterHtmlHelper {
     fun printHtml(context: Context, options: com.facebook.react.bridge.ReadableMap, device: android.hardware.usb.UsbDevice): WritableMap {
         val html = options.getString("html") ?: ""
         val align = if (options.hasKey("align")) options.getString("align") else null
+        // pageWidth vem em mm, converter para pixels (1mm ≈ 7.2px para 203dpi)
+        val pageWidthMm = if (options.hasKey("pageWidth")) options.getInt("pageWidth") else 80 // padrão 80mm
+        val pageWidthPx = (pageWidthMm * 7.2).toInt() // 203dpi: 1mm ≈ 7.2px
+
         val result = Arguments.createMap()
         try {
             val webView = android.webkit.WebView(context)
             webView.settings.javaScriptEnabled = true
             webView.setBackgroundColor(0xFFFFFFFF.toInt())
-            webView.layout(0, 0, 384, 6000) // Largura típica de impressora térmica 58mm (384px)
+            webView.layout(0, 0, pageWidthPx, 6000) // Usa pageWidth convertido para px
             var bitmap: android.graphics.Bitmap? = null
             val latch = java.util.concurrent.CountDownLatch(1)
             webView.webViewClient = object : android.webkit.WebViewClient() {
@@ -45,7 +49,10 @@ object UsbPrinterHtmlHelper {
             webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             latch.await()
             if (bitmap != null) {
-                return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
+                // return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
+                 result.putBoolean("success", true)
+                result.putString("message", "HTML renderizado com sucesso.")
+                return result
             } else {
                 result.putBoolean("success", false)
                 result.putString("message", "Erro ao renderizar HTML para bitmap.")

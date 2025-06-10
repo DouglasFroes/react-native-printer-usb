@@ -2,18 +2,18 @@ import { useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   barCode,
-  clean,
   getList,
-  off,
   printCut,
   printHtml,
   printImageBase64,
   printImageUri,
   printText,
   qrCode,
+  reset,
   sendRawData,
 } from 'react-native-usb-printer';
-import { img64 } from './img64';
+import { commands } from '../../src/utils/commands';
+import { imageBase64 } from './img64';
 
 export default function App() {
   const [devices, setDevices] = useState<any[]>([]);
@@ -100,23 +100,12 @@ export default function App() {
     );
   };
 
-  const handleClean = async () => {
-    if (selectedProductId == null) {
-      setPrintResult('Selecione um dispositivo para limpar.');
-      return;
-    }
-    const result = await clean(selectedProductId);
-    setPrintResult(
-      result.success ? 'Limpeza realizada!' : 'Erro: ' + (result.message || '')
-    );
-  };
-
-  const handleOff = async () => {
+  const handleReset = async () => {
     if (selectedProductId == null) {
       setPrintResult('Selecione um dispositivo para desligar.');
       return;
     }
-    const result = await off(selectedProductId);
+    const result = await reset(selectedProductId);
     setPrintResult(
       result.success
         ? 'Comando de desligar enviado!'
@@ -131,7 +120,7 @@ export default function App() {
     }
     // Exemplo base64 PNG (imagem preta 1x1)
     const result = await printImageBase64({
-      base64Image: img64,
+      base64Image: imageBase64,
       align: 'center',
       productId: selectedProductId,
     });
@@ -148,7 +137,7 @@ export default function App() {
       return;
     }
     // Exemplo de URI local (ajuste conforme necessário)
-    const imageUri = 'https://avatars.githubusercontent.com/u/0';
+    const imageUri = 'https://avatars.githubusercontent.com/u/194425997';
     const result = await printImageUri({
       imageUri,
       align: 'center',
@@ -183,11 +172,20 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para enviar RAW.');
       return;
     }
-    // Exemplo: comando ESC/POS para bipar e cortar papel
-    // Comando: <BEEP>\x1B\x42\x03\x02  <CUT>\x1D\x56\x00
-    // Aqui usamos base64 para enviar bytes: BEEP+CUT = 'G0IDAg1WAA=='
-    const base64Data = 'G0IDAg1WAA==';
-    const result = await sendRawData(base64Data, selectedProductId);
+
+    const textPrint = `${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}${commands.text_format.txt_bold_on}DSF${commands.text_format.txt_bold_off}
+      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_b}${commands.text_format.txt_bold_on}TEST${commands.text_format.txt_bold_off}
+      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_c}26
+      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}Dodo
+      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}TEST\n`;
+
+    const result = await sendRawData({
+      productId: selectedProductId,
+      text: textPrint,
+      beep: true,
+      cut: true,
+      tailingLine: true,
+    });
     setPrintResult(
       result.success
         ? 'RAW enviado com sucesso!'
@@ -218,9 +216,8 @@ export default function App() {
         <View style={styles.buttonSpacer} />
         <Button title="QR Code" onPress={handleQrCode} color="#0288d1" />
         <View style={styles.buttonSpacer} />
-        <Button title="Limpar" onPress={handleClean} color="#607d8b" />
         <View style={styles.buttonSpacer} />
-        <Button title="Desligar" onPress={handleOff} color="#b71c1c" />
+        <Button title="Desligar" onPress={handleReset} color="#b71c1c" />
         <View style={styles.buttonSpacer} />
         <Button
           title="Imagem Base64"
