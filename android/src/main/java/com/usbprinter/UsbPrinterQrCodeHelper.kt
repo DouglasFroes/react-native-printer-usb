@@ -1,12 +1,17 @@
 package com.usbprinter
 
 import android.content.Context
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 
 object UsbPrinterQrCodeHelper {
-    fun printQrCode(context: Context, text: String, size: Double, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun printQrCode(context: Context, options: ReadableMap, device: UsbDevice): WritableMap {
+        val text = options.getString("text") ?: ""
+        val size = if (options.hasKey("size")) options.getDouble("size") else 6.0
+        val align = if (options.hasKey("align")) options.getString("align") else null
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
@@ -15,6 +20,12 @@ object UsbPrinterQrCodeHelper {
             val usbInterface = device.getInterface(0)
             val endpoint = usbInterface.getEndpoint(0)
             connection.claimInterface(usbInterface, true)
+            // Alinhamento
+            when (align) {
+                "center" -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x01), 3, 2000)
+                "right" -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x02), 3, 2000)
+                else -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x00), 3, 2000)
+            }
             val storeLen = text.toByteArray(Charsets.UTF_8).size + 3
             val pL = (storeLen % 256).toByte()
             val pH = (storeLen / 256).toByte()
@@ -26,8 +37,6 @@ object UsbPrinterQrCodeHelper {
             connection.bulkTransfer(endpoint, sizeCmd, sizeCmd.size, 2000)
             connection.bulkTransfer(endpoint, store, store.size, 2000)
             connection.bulkTransfer(endpoint, print, print.size, 2000)
-            connection.releaseInterface(usbInterface)
-            connection.close()
             result.putBoolean("success", true)
             result.putString("message", "QR Code impresso com sucesso.")
         } catch (e: Exception) {
@@ -40,7 +49,7 @@ object UsbPrinterQrCodeHelper {
             try {
                 connection?.close()
             } catch (_: Exception) {}
-            promise.resolve(result)
         }
+        return result
     }
 }

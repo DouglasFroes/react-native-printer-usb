@@ -1,9 +1,10 @@
 package com.usbprinter
 
 import android.content.Context
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.WritableMap
 
 object UsbPrinterCleanHelper {
     /**
@@ -14,7 +15,7 @@ object UsbPrinterCleanHelper {
      *
      * Observação: Para limpeza total, recomenda-se também limpar variáveis/estados do lado do app após chamar este método.
      */
-    fun clean(context: Context, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun clean(context: Context, device: UsbDevice): WritableMap {
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         val result = Arguments.createMap()
@@ -39,7 +40,7 @@ object UsbPrinterCleanHelper {
             try {
                 connection?.close()
             } catch (_: Exception) {}
-            promise.resolve(result)
         }
+        return result
     }
 }

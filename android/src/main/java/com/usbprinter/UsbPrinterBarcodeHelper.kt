@@ -1,12 +1,17 @@
 package com.usbprinter
 
 import android.content.Context
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 
 object UsbPrinterBarcodeHelper {
-    fun printBarcode(context: Context, text: String, width: Double, height: Double, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun printBarcode(context: Context, options: ReadableMap, device: UsbDevice): WritableMap {
+        val text = options.getString("text") ?: ""
+        val width = if (options.hasKey("width")) options.getDouble("width") else 2.0
+        val height = if (options.hasKey("height")) options.getDouble("height") else 100.0
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
@@ -33,7 +38,7 @@ object UsbPrinterBarcodeHelper {
             try {
                 connection?.close()
             } catch (_: Exception) {}
-            promise.resolve(result)
         }
+        return result
     }
 }

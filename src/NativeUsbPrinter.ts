@@ -27,6 +27,38 @@ export interface PrinterResult {
   message?: string;
 }
 
+export interface BarCodeOptions {
+  text: string;
+  width?: number;
+  height?: number;
+  productId: number;
+}
+
+export interface QrCodeOptions {
+  text: string;
+  size?: number;
+  align?: 'left' | 'center' | 'right';
+  productId: number;
+}
+
+export interface PrintImageBase64Options {
+  base64Image: string;
+  align?: 'left' | 'center' | 'right';
+  productId: number;
+}
+
+export interface PrintImageUriOptions {
+  imageUri: string;
+  align?: 'left' | 'center' | 'right';
+  productId: number;
+}
+
+export interface PrintHtmlOptions {
+  html: string;
+  align?: 'left' | 'center' | 'right';
+  productId: number;
+}
+
 export interface Spec extends TurboModule {
   getList(): UsbDeviceInfo[];
   printText(options: PrintTextOptions): Promise<PrinterResult>;
@@ -35,19 +67,14 @@ export interface Spec extends TurboModule {
     beep: boolean,
     productId: number
   ): Promise<PrinterResult>;
-  barCode(
-    text: string,
-    width: number,
-    height: number,
-    productId: number
-  ): Promise<PrinterResult>;
-  qrCode(text: string, size: number, productId: number): Promise<PrinterResult>;
+  barCode(options: BarCodeOptions): Promise<PrinterResult>;
+  qrCode(options: QrCodeOptions): Promise<PrinterResult>;
   clean(productId: number): Promise<PrinterResult>;
   off(productId: number): Promise<PrinterResult>;
   sendRawData(data: string, productId: number): Promise<PrinterResult>;
-  printImageBase64(base64: string, productId: number): Promise<PrinterResult>;
-  printImageUri(uri: string, productId: number): Promise<PrinterResult>;
-  printHtml(html: string, productId: number): Promise<PrinterResult>;
+  printImageBase64(options: PrintImageBase64Options): Promise<PrinterResult>;
+  printImageUri(options: PrintImageUriOptions): Promise<PrinterResult>;
+  printHtml(options: PrintHtmlOptions): Promise<PrinterResult>;
 }
 
 const UsbPrinter = TurboModuleRegistry.getEnforcing<Spec>('UsbPrinter');

@@ -24,6 +24,15 @@ import android.hardware.usb.UsbDeviceConnection
 
 import com.usbprinter.UsbDeviceHelper
 import com.usbprinter.UsbDevicePermissionChecker
+import com.usbprinter.UsbPrinterTextHelper
+import com.usbprinter.UsbPrinterCutHelper
+import com.usbprinter.UsbPrinterBarcodeHelper
+import com.usbprinter.UsbPrinterQrCodeHelper
+import com.usbprinter.UsbPrinterCleanHelper
+import com.usbprinter.UsbPrinterOffHelper
+import com.usbprinter.UsbPrinterRawHelper
+import com.usbprinter.UsbPrinterImageHelper
+import com.usbprinter.UsbPrinterHtmlHelper
 
 @ReactModule(name = UsbPrinterModule.NAME)
 class UsbPrinterModule(reactContext: ReactApplicationContext) :
@@ -34,8 +43,7 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
   }
 
   override fun getList(): WritableArray{
-    val helper = UsbDeviceHelper(reactApplicationContext)
-    val devices = helper.getConnectedUsbDevices()
+    val devices = UsbDeviceHelper.getConnectedUsbDevices(reactApplicationContext)
     val array = WritableNativeArray()
     for (device: UsbDevice in devices) {
       val map = WritableNativeMap()
@@ -53,138 +61,121 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     return array
   }
 
+  private fun getCheckedDevice(productId: Double): UsbDevice? {
+    return UsbDevicePermissionChecker.checkDeviceAndPermission(reactApplicationContext, productId.toInt())
+  }
+
+  private fun getDeviceErrorMessage(): WritableMap {
+    val result = Arguments.createMap()
+    result.putBoolean("success", false)
+    result.putString("message", "Dispositivo não encontrado ou permissão não concedida. Se solicitado, conceda permissão e tente novamente.")
+    return result
+  }
 
   override fun printText(options: ReadableMap, promise: Promise) {
     val productId = options.getDouble("productId")
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida. Se solicitado, conceda permissão e tente novamente.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    val printerTextHelper = com.usbprinter.UsbPrinterTextHelper(reactApplicationContext)
-    val result = printerTextHelper.printText(options, device)
+    val result = UsbPrinterTextHelper.printText(reactApplicationContext, options, device)
     promise.resolve(result)
   }
 
   override fun printCut(tailingLine: Boolean, beep: Boolean, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterCutHelper.printCut(reactApplicationContext, tailingLine, beep, promise, device)
+    val result = UsbPrinterCutHelper.printCut(reactApplicationContext, tailingLine, beep, device)
+    promise.resolve(result)
   }
 
-  override fun barCode(text: String, width: Double, height: Double, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+  override fun barCode(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterBarcodeHelper.printBarcode(reactApplicationContext, text, width, height, promise, device)
+    val result = UsbPrinterBarcodeHelper.printBarcode(reactApplicationContext, options, device)
+    promise.resolve(result)
   }
 
-  override fun qrCode(text: String, size: Double, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+  override fun qrCode(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterQrCodeHelper.printQrCode(reactApplicationContext, text, size, promise, device)
+    val result = UsbPrinterQrCodeHelper.printQrCode(reactApplicationContext, options, device)
+    promise.resolve(result)
   }
 
   override fun clean(productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterCleanHelper.clean(reactApplicationContext, promise, device)
+    val result = UsbPrinterCleanHelper.clean(reactApplicationContext, device)
+    promise.resolve(result)
   }
 
   override fun off(productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterOffHelper.off(reactApplicationContext, promise, device)
+    val result = UsbPrinterOffHelper.off(reactApplicationContext, device)
+    promise.resolve(result)
   }
 
   override fun sendRawData(base64Data: String, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterRawHelper.sendRawData(reactApplicationContext, base64Data, promise, device)
+    val result = UsbPrinterRawHelper.sendRawData(reactApplicationContext, base64Data, device)
+    promise.resolve(result)
   }
 
-  override fun printImageBase64(base64Image: String, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+  override fun printImageBase64(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterImageHelper.printImageBase64(reactApplicationContext, base64Image, promise, device)
+    val result = UsbPrinterImageHelper.printImageBase64(reactApplicationContext, options, device)
+    promise.resolve(result)
   }
 
-  override fun printImageUri(imageUri: String, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+  override fun printImageUri(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterImageHelper.printImageUri(reactApplicationContext, imageUri, promise, device)
+    val result = UsbPrinterImageHelper.printImageUri(reactApplicationContext, options, device)
+    promise.resolve(result)
   }
 
-  override fun printHtml(html: String, productId: Double, promise: Promise) {
-    val checker = UsbDevicePermissionChecker(reactApplicationContext)
-    val device = checker.checkDeviceAndPermission(productId.toInt())
+  override fun printHtml(options: ReadableMap, promise: Promise) {
+    val productId = options.getDouble("productId")
+    val device = getCheckedDevice(productId)
     if (device == null) {
-      val result = Arguments.createMap()
-      result.putBoolean("success", false)
-      result.putString("message", "Dispositivo não encontrado ou permissão não concedida.")
-      promise.resolve(result)
+      promise.resolve(getDeviceErrorMessage())
       return
     }
-    UsbPrinterHtmlHelper.printHtml(reactApplicationContext, html, promise, device)
+    val result = UsbPrinterHtmlHelper.printHtml(reactApplicationContext, options, device)
+    promise.resolve(result)
   }
 
   companion object {
@@ -192,3 +183,5 @@ class UsbPrinterModule(reactContext: ReactApplicationContext) :
     private const val ACTION_USB_PERMISSION = "com.usbprinter.USB_PERMISSION"
   }
 }
+
+

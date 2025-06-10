@@ -6,10 +6,14 @@ import {
   getList,
   off,
   printCut,
+  printHtml,
+  printImageBase64,
+  printImageUri,
   printText,
   qrCode,
+  sendRawData,
 } from 'react-native-usb-printer';
-import { commands } from '../../src/utils/commands';
+import { img64 } from './img64';
 
 export default function App() {
   const [devices, setDevices] = useState<any[]>([]);
@@ -35,31 +39,21 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imprimir.');
       return;
     }
-
-    const result = await printText(
-      `${commands.text_format.txt_normal}${commands.text_format.txt_align_lt}Titulo em destaque`,
-      selectedProductId
+    // Exemplo de impressão de texto formatado
+    const result = await printText({
+      text: 'Título em destaque\nLinha normal\nTexto em negrito',
+      size: 2,
+      align: 'center',
+      bold: true,
+      productId: selectedProductId,
+      cut: true,
+      beep: true,
+    });
+    setPrintResult(
+      result.success
+        ? 'Texto impresso com sucesso!'
+        : 'Erro: ' + (result.message || '')
     );
-    // await printText(
-    //   `${commands.text_format.txt_normal}Linha normal\n${commands.text_format.txt_italic_on}Texto em itálico\n`,
-    //   selectedProductId
-    // );
-    // await printText(
-    //   `${commands.horizontal_line.hr_58mm}${commands.text_format.txt_4square}GRANDE\n${commands.text_format.txt_normal}`,
-    //   selectedProductId
-    // );
-    // const result = await printText(
-    //   'Final do recibo\n' + commands.paper.paper_cut_a,
-    //   selectedProductId
-    // );
-
-    if (result.success) {
-      setPrintResult(result.message || 'Impressão realizada com sucesso!');
-    } else {
-      setPrintResult(
-        'Erro ao imprimir: ' + (result.message || 'Erro desconhecido')
-      );
-    }
   };
 
   const handlePrintCut = async () => {
@@ -78,7 +72,12 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para código de barras.');
       return;
     }
-    const result = await barCode('123456789012', 2, 80, selectedProductId);
+    const result = await barCode({
+      text: '123456789012',
+      width: 2,
+      height: 80,
+      productId: selectedProductId,
+    });
     setPrintResult(
       result.success
         ? 'Código de barras impresso!'
@@ -91,11 +90,11 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para QR Code.');
       return;
     }
-    const result = await qrCode(
-      'https://reactnative.dev',
-      6,
-      selectedProductId
-    );
+    const result = await qrCode({
+      text: 'https://reactnative.dev',
+      size: 6,
+      productId: selectedProductId,
+    });
     setPrintResult(
       result.success ? 'QR Code impresso!' : 'Erro: ' + (result.message || '')
     );
@@ -121,6 +120,77 @@ export default function App() {
     setPrintResult(
       result.success
         ? 'Comando de desligar enviado!'
+        : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handlePrintImageBase64 = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para imagem base64.');
+      return;
+    }
+    // Exemplo base64 PNG (imagem preta 1x1)
+    const result = await printImageBase64({
+      base64Image: img64,
+      align: 'center',
+      productId: selectedProductId,
+    });
+    setPrintResult(
+      result.success
+        ? 'Imagem (base64) impressa!'
+        : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handlePrintImageUri = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para imagem URI.');
+      return;
+    }
+    // Exemplo de URI local (ajuste conforme necessário)
+    const imageUri = 'https://avatars.githubusercontent.com/u/0';
+    const result = await printImageUri({
+      imageUri,
+      align: 'center',
+      productId: selectedProductId,
+    });
+    setPrintResult(
+      result.success
+        ? 'Imagem (URI) impressa!'
+        : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handlePrintHtml = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para HTML.');
+      return;
+    }
+    const html =
+      '<div style="font-size:18px;text-align:center;">Impressão <b>HTML</b>!</div>';
+    const result = await printHtml({
+      html,
+      align: 'center',
+      productId: selectedProductId,
+    });
+    setPrintResult(
+      result.success ? 'HTML impresso!' : 'Erro: ' + (result.message || '')
+    );
+  };
+
+  const handleSendRawData = async () => {
+    if (selectedProductId == null) {
+      setPrintResult('Selecione um dispositivo para enviar RAW.');
+      return;
+    }
+    // Exemplo: comando ESC/POS para bipar e cortar papel
+    // Comando: <BEEP>\x1B\x42\x03\x02  <CUT>\x1D\x56\x00
+    // Aqui usamos base64 para enviar bytes: BEEP+CUT = 'G0IDAg1WAA=='
+    const base64Data = 'G0IDAg1WAA==';
+    const result = await sendRawData(base64Data, selectedProductId);
+    setPrintResult(
+      result.success
+        ? 'RAW enviado com sucesso!'
         : 'Erro: ' + (result.message || '')
     );
   };
@@ -151,6 +221,23 @@ export default function App() {
         <Button title="Limpar" onPress={handleClean} color="#607d8b" />
         <View style={styles.buttonSpacer} />
         <Button title="Desligar" onPress={handleOff} color="#b71c1c" />
+        <View style={styles.buttonSpacer} />
+        <Button
+          title="Imagem Base64"
+          onPress={handlePrintImageBase64}
+          color="#009688"
+        />
+        <View style={styles.buttonSpacer} />
+        <Button
+          title="Imagem URI"
+          onPress={handlePrintImageUri}
+          color="#8bc34a"
+        />
+        <View style={styles.buttonSpacer} />
+        <Button title="HTML" onPress={handlePrintHtml} color="#f44336" />
+        <View style={styles.buttonSpacer} />
+        <Button title="RAW" onPress={handleSendRawData} color="#607d8b" />
+        <View style={styles.buttonSpacer} />
       </View>
       {printResult && (
         <Text
@@ -163,6 +250,7 @@ export default function App() {
         </Text>
       )}
       <ScrollView
+        horizontal
         style={styles.deviceList}
         contentContainerStyle={styles.deviceListContent}
       >

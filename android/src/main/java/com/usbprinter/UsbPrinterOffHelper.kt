@@ -1,16 +1,17 @@
 package com.usbprinter
 
 import android.content.Context
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.WritableMap
 
 /**
  * Desconecta da impressora USB, libera recursos e encerra a sessão USB.
  * Observação: Não desliga fisicamente a impressora, apenas envia comandos de avanço/corte e fecha a conexão.
  */
 object UsbPrinterOffHelper {
-    fun off(context: Context, promise: Promise, device: android.hardware.usb.UsbDevice) {
+    fun off(context: Context, device: UsbDevice): WritableMap {
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
@@ -35,7 +36,7 @@ object UsbPrinterOffHelper {
             try {
                 connection?.close()
             } catch (_: Exception) {}
-            promise.resolve(result)
         }
+        return result
     }
 }

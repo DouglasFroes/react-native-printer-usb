@@ -1,20 +1,12 @@
 package com.usbprinter
 
-import android.content.Context
-import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbEndpoint
-import android.hardware.usb.UsbInterface
-import android.hardware.usb.UsbManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 
-
-class UsbPrinterTextHelper(private val context: Context) {
-
-
-    fun printText(options: ReadableMap, device: android.hardware.usb.UsbDevice): WritableMap {
+object UsbPrinterTextHelper {
+    fun printText(context: android.content.Context, options: ReadableMap, device: android.hardware.usb.UsbDevice): WritableMap {
         val text = options.getString("text") ?: ""
         val size = if (options.hasKey("size")) options.getInt("size") else null
         val align = if (options.hasKey("align")) options.getString("align") else null
@@ -26,7 +18,7 @@ class UsbPrinterTextHelper(private val context: Context) {
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
-            val usbManager = context.getSystemService(Context.USB_SERVICE) as android.hardware.usb.UsbManager
+            val usbManager = context.getSystemService(android.content.Context.USB_SERVICE) as android.hardware.usb.UsbManager
             connection = usbManager.openDevice(device)
             val usbInterface = device.getInterface(0)
             val endpoint = usbInterface.getEndpoint(0)

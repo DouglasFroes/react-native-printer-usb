@@ -18,16 +18,15 @@ export async function printCut(
 }
 
 export async function barCode(
-  text: string,
-  width: number,
-  height: number,
-  productId: number
+  options: import('./NativeUsbPrinter').BarCodeOptions
 ) {
-  return UsbPrinter.barCode(text, width, height, productId);
+  return UsbPrinter.barCode(options);
 }
 
-export async function qrCode(text: string, size: number, productId: number) {
-  return UsbPrinter.qrCode(text, size, productId);
+export async function qrCode(
+  options: import('./NativeUsbPrinter').QrCodeOptions
+) {
+  return UsbPrinter.qrCode(options);
 }
 
 export async function clean(productId: number) {
@@ -42,14 +41,20 @@ export async function sendRawData(data: string, productId: number) {
   return UsbPrinter.sendRawData(data, productId);
 }
 
-export async function printImageBase64(base64: string, productId: number) {
-  return UsbPrinter.printImageBase64(base64, productId);
+export async function printImageBase64(
+  options: import('./NativeUsbPrinter').PrintImageBase64Options
+) {
+  return UsbPrinter.printImageBase64(options);
 }
 
-export async function printImageUri(uri: string, productId: number) {
-  return UsbPrinter.printImageUri(uri, productId);
+export async function printImageUri(
+  options: import('./NativeUsbPrinter').PrintImageUriOptions
+) {
+  return UsbPrinter.printImageUri(options);
 }
 
-export async function printHtml(html: string, productId: number) {
-  return UsbPrinter.printHtml(html, productId);
+export async function printHtml(
+  options: import('./NativeUsbPrinter').PrintHtmlOptions
+) {
+  return UsbPrinter.printHtml(options);
 }

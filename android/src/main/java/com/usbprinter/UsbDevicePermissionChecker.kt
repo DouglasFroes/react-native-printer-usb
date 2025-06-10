@@ -8,15 +8,13 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 
-class UsbDevicePermissionChecker(private val context: Context) {
-    companion object {
-        private const val ACTION_USB_PERMISSION = "com.usbprinter.USB_PERMISSION"
-    }
+object UsbDevicePermissionChecker {
+    private const val ACTION_USB_PERMISSION = "com.usbprinter.USB_PERMISSION"
 
-    fun checkDeviceAndPermission(productId: Int): UsbDevice? {
-        val helper = UsbDeviceHelper(context)
+    fun checkDeviceAndPermission(context: Context, productId: Int): UsbDevice? {
+        val devices = UsbDeviceHelper.getConnectedUsbDevices(context)
         val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-        val device = helper.getConnectedUsbDevices().firstOrNull { it.getProductId() == productId }
+        val device = devices.firstOrNull { it.productId == productId }
         if (device == null) return null
         if (!usbManager.hasPermission(device)) {
             val permissionIntent = PendingIntent.getBroadcast(
