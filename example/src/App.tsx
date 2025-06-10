@@ -158,24 +158,19 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para HTML.');
       return;
     }
-    const html = `<html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; }
-          h1 { color: #1976d2; }
-          p { font-size: 16px; color: #333; }
-        </style>
-      </head>
-      <body>
-        <h1>Impressão HTML</h1>
-        <p>Este é um exemplo de impressão HTML com React Native USB Printer.</p>
-        <p>Você pode personalizar o conteúdo como desejar.</p>
-      </body>
-      </html>`;
+
+    const html = `<div style="text-align: center; font-family: Arial, sans-serif;">
+      <h1>Impressão HTML</h1>
+      <p>Este é um exemplo de impressão HTML com React Native USB Printer.</p>
+      <p style="font-size: 20px; color: #1976d2;">Texto centralizado</p>
+      <img src="https://avatars.githubusercontent.com/u/194425997" alt="Logo" style="width: 100px; height: 100px; margin: 10px 0;" />
+      <p style="font-size: 16px; color: #666;">Você pode usar estilos CSS para formatar o conteúdo.</p>
+      </div>`;
 
     const result = await printHtml({
       html,
       align: 'center',
+      htmlHeight: 760,
       productId: selectedProductId,
     });
     setPrintResult(

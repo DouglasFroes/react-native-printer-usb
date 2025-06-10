@@ -59,6 +59,7 @@ export interface PrintHtmlOptions {
   html: string;
   align?: 'left' | 'center' | 'right';
   pageWidth?: number;
+  htmlHeight?: number;
   productId: number;
 }
 

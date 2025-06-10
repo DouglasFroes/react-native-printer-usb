@@ -18,13 +18,17 @@ object UsbPrinterHtmlHelper {
      * @return WritableMap com o resultado da impressão
      */
     fun printHtml(context: Context, options: com.facebook.react.bridge.ReadableMap, device: android.hardware.usb.UsbDevice): WritableMap {
+         val result = Arguments.createMap()
+
         val html = options.getString("html") ?: ""
         val align = if (options.hasKey("align")) options.getString("align") else null
         // pageWidth vem em mm, converter para pixels (1mm ≈ 7.2px para 203dpi)
         val pageWidthMm = if (options.hasKey("pageWidth")) options.getInt("pageWidth") else 80 // padrão 80mm
         val pageWidthPx = (pageWidthMm * 7.2).toInt() // 203dpi: 1mm ≈ 7.2px
 
-        val result = Arguments.createMap()
+        val htmlHeight = if (options.hasKey("htmlHeight")) options.getDouble("htmlHeight") else null // altura fixa em pixels, se fornecida
+        val pageHeightPx = htmlHeight?.toInt() ?: 200 // valor padrão se não informado
+
         val latch = java.util.concurrent.CountDownLatch(1)
         val bitmapHolder = arrayOfNulls<Bitmap>(1)
 
@@ -33,14 +37,13 @@ object UsbPrinterHtmlHelper {
                 val webView = WebView(context)
                 webView.settings.javaScriptEnabled = true
                 webView.setBackgroundColor(0xFFFFFFFF.toInt())
-                webView.layout(0, 0, pageWidthPx, 6000) // Usa pageWidth convertido para px
+                webView.layout(0, 0, pageWidthPx, pageHeightPx) // Usa pageWidth convertido para px e altura definida
                 webView.webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         Handler(Looper.getMainLooper()).postDelayed({
                             try {
                                 val width = webView.width
-                                val height = webView.contentHeight * webView.scale.toInt()
-                                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                                val bitmap = Bitmap.createBitmap(width, pageHeightPx, Bitmap.Config.ARGB_8888)
                                 val canvas = android.graphics.Canvas(bitmap)
                                 webView.draw(canvas)
                                 bitmapHolder[0] = bitmap
@@ -59,7 +62,7 @@ object UsbPrinterHtmlHelper {
 
         val bitmap = bitmapHolder[0]
 
-       if (bitmap != null) {
+        if (bitmap != null) {
             return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
         } else {
             result.putBoolean("success", false)
