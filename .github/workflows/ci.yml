@@ -89,6 +89,9 @@ jobs:
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
       - name: Cache Gradle
         if: env.turbo_cache_hit != 1
         uses: actions/cache@v4
