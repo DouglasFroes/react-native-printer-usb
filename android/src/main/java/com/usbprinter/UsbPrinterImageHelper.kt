@@ -12,6 +12,10 @@ import android.content.ContentResolver
 import android.graphics.Canvas
 import android.graphics.Color
 import android.util.Base64
+import java.net.URL
+import java.io.File
+import java.io.FileOutputStream
+import com.usbprinter.UtilsImage
 
 object UsbPrinterImageHelper {
     /**
@@ -51,7 +55,22 @@ object UsbPrinterImageHelper {
             val pageWidthMm = if (options.hasKey("pageWidth")) options.getInt("pageWidth") else null
             val pageWidthPx = pageWidthMm?.let { (it * 7.2).toInt() }
             val uri = Uri.parse(imageUri)
-            val inputStream = context.contentResolver.openInputStream(uri)
+            var inputStream = when {
+                imageUri.startsWith("https://") || imageUri.startsWith("http://") -> {
+                    // Baixa a imagem remota para arquivo temporário
+                    val url = URL(imageUri)
+                    val connection = url.openConnection()
+                    connection.connect()
+                    val input = connection.getInputStream()
+                    val tempFile = File.createTempFile("usbprinter_img", ".tmp", context.cacheDir)
+                    val output = FileOutputStream(tempFile)
+                    input.copyTo(output)
+                    output.close()
+                    input.close()
+                    context.contentResolver.openInputStream(Uri.fromFile(tempFile))
+                }
+                else -> context.contentResolver.openInputStream(uri)
+            }
             var bitmap = BitmapFactory.decodeStream(inputStream)
             inputStream?.close()
             if (bitmap != null && pageWidthPx != null && bitmap.width != pageWidthPx) {
@@ -85,14 +104,44 @@ object UsbPrinterImageHelper {
             val usbInterface = device.getInterface(0)
             val endpoint = usbInterface.getEndpoint(0)
             connection.claimInterface(usbInterface, true)
-            // Alinhamento opcional
-            when (align) {
-                "center" -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x01), 3, 2000)
-                "right" -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x02), 3, 2000)
-                else -> connection.bulkTransfer(endpoint, byteArrayOf(0x1B, 0x61, 0x00), 3, 2000)
+
+            // Configuração de alinhamento
+            val CENTER_ALIGN = byteArrayOf(0x1B, 0x61, 0x01)
+            val LEFT_ALIGN = byteArrayOf(0x1B, 0x61, 0x00)
+            if (align == "center") {
+                connection.bulkTransfer(endpoint, CENTER_ALIGN, CENTER_ALIGN.size, 1000)
+            } else {
+                connection.bulkTransfer(endpoint, LEFT_ALIGN, LEFT_ALIGN.size, 1000)
             }
-            val escpos = bitmapToEscPos(bitmap)
-            connection.bulkTransfer(endpoint, escpos, escpos.size, 4000)
+
+            // Configuração de espaçamento de linha
+            val SET_LINE_SPACE_24 = byteArrayOf(0x1B, 0x33, 24)
+            val SET_LINE_SPACE_32 = byteArrayOf(0x1B, 0x33, 32)
+            val LINE_FEED = byteArrayOf(0x0A)
+            connection.bulkTransfer(endpoint, SET_LINE_SPACE_24, SET_LINE_SPACE_24.size, 1000)
+
+            val imageWidth = bitmap.width
+            val imageHeight = bitmap.height
+            val pixels = UtilsImage.getPixelsSlow(bitmap, imageWidth, imageHeight)
+
+            // Para cada fatia vertical de 24 linhas
+            for (y in 0 until imageHeight step 24) {
+                // Comando ESC * para modo bit image
+                val nL = (imageWidth and 0xFF).toByte()
+                val nH = ((imageWidth shr 8) and 0xFF).toByte()
+                val SELECT_BIT_IMAGE_MODE = byteArrayOf(0x1B, 0x2A, 33, nL, nH)
+                connection.bulkTransfer(endpoint, SELECT_BIT_IMAGE_MODE, SELECT_BIT_IMAGE_MODE.size, 1000)
+
+                // Para cada coluna da imagem
+                for (x in 0 until imageWidth) {
+                    val slice = UtilsImage.recollectSlice(y, x, pixels)
+                    connection.bulkTransfer(endpoint, slice, slice.size, 1000)
+                }
+                connection.bulkTransfer(endpoint, LINE_FEED, LINE_FEED.size, 1000)
+            }
+            connection.bulkTransfer(endpoint, SET_LINE_SPACE_32, SET_LINE_SPACE_32.size, 1000)
+            connection.bulkTransfer(endpoint, LINE_FEED, LINE_FEED.size, 1000)
+
             result.putBoolean("success", true)
             result.putString("message", "Imagem impressa com sucesso.")
         } catch (e: Exception) {
@@ -103,34 +152,5 @@ object UsbPrinterImageHelper {
             try { connection?.close() } catch (_: Exception) {}
         }
         return result
-    }
-
-    /**
-     * Converte um Bitmap para comandos ESC/POS (modo gráfico simples, 8-dot single density).
-     * Suporta apenas preto e branco (threshold simples).
-     */
-    private fun bitmapToEscPos(bitmap: Bitmap): ByteArray {
-        val width = bitmap.width
-        val height = bitmap.height
-        val bytesPerLine = (width + 7) / 8
-        val escpos = mutableListOf<Byte>()
-        for (y in 0 until height) {
-            escpos.add(0x1B.toByte()) // ESC
-            escpos.add(0x2A.toByte()) // *
-            escpos.add(0x21.toByte()) // m=33 (8-dot single density)
-            escpos.add((width and 0xFF).toByte()) // nL
-            escpos.add(((width shr 8) and 0xFF).toByte()) // nH
-            for (x in 0 until bytesPerLine * 8 step 8) {
-                var b = 0
-                for (bit in 0..7) {
-                    val px = if (x + bit < width) bitmap.getPixel(x + bit, y) else 0xFFFFFF
-                    val gray = (Color.red(px) + Color.green(px) + Color.blue(px)) / 3
-                    if (gray < 128) b = b or (1 shl (7 - bit))
-                }
-                escpos.add(b.toByte())
-            }
-            escpos.add(0x0A.toByte()) // LF
-        }
-        return escpos.toByteArray()
     }
 }

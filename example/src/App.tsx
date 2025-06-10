@@ -39,16 +39,18 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para imprimir.');
       return;
     }
+    console.log('Selected Product ID:', selectedProductId);
     // Exemplo de impressão de texto formatado
     const result = await printText({
-      text: 'Título em destaque\nLinha normal\nTexto em negrito',
-      size: 2,
+      text: 'Hello, World!\nImpressão de texto com React Native USB Printer\n',
       align: 'center',
-      bold: true,
+      // encoding aceita acentuação, mas é necessário que a impressora suporte
+      encoding: 'CP850',
       productId: selectedProductId,
-      cut: true,
-      beep: true,
+      // cut: true,
+      beep: false,
     });
+    console.log('Print Result:', result);
     setPrintResult(
       result.success
         ? 'Texto impresso com sucesso!'
@@ -94,6 +96,7 @@ export default function App() {
       text: 'https://reactnative.dev',
       size: 6,
       productId: selectedProductId,
+      align: 'center',
     });
     setPrintResult(
       result.success ? 'QR Code impresso!' : 'Erro: ' + (result.message || '')
@@ -155,8 +158,21 @@ export default function App() {
       setPrintResult('Selecione um dispositivo para HTML.');
       return;
     }
-    const html =
-      '<div style="font-size:18px;text-align:center;">Impressão <b>HTML</b>!</div>';
+    const html = `<html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; }
+          h1 { color: #1976d2; }
+          p { font-size: 16px; color: #333; }
+        </style>
+      </head>
+      <body>
+        <h1>Impressão HTML</h1>
+        <p>Este é um exemplo de impressão HTML com React Native USB Printer.</p>
+        <p>Você pode personalizar o conteúdo como desejar.</p>
+      </body>
+      </html>`;
+
     const result = await printHtml({
       html,
       align: 'center',
@@ -174,17 +190,17 @@ export default function App() {
     }
 
     const textPrint = `${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}${commands.text_format.txt_bold_on}DSF${commands.text_format.txt_bold_off}
-      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_b}${commands.text_format.txt_bold_on}TEST${commands.text_format.txt_bold_off}
+      ${commands.text_format.txt_font_b}TEST
       ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_c}26
-      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}Dodo
-      ${commands.text_format.txt_align_ct}${commands.text_format.txt_font_a}TEST\n`;
+      -${commands.text_format.txt_font_a}Dodo
+      ${commands.text_format.txt_align_lt}${commands.text_format.txt_font_a}Café Maçã Ç Ñ ü \n`;
 
     const result = await sendRawData({
       productId: selectedProductId,
       text: textPrint,
-      beep: true,
       cut: true,
       tailingLine: true,
+      encoding: 'utf8',
     });
     setPrintResult(
       result.success
@@ -217,7 +233,7 @@ export default function App() {
         <Button title="QR Code" onPress={handleQrCode} color="#0288d1" />
         <View style={styles.buttonSpacer} />
         <View style={styles.buttonSpacer} />
-        <Button title="Desligar" onPress={handleReset} color="#b71c1c" />
+        <Button title="Reset" onPress={handleReset} color="#b71c1c" />
         <View style={styles.buttonSpacer} />
         <Button
           title="Imagem Base64"

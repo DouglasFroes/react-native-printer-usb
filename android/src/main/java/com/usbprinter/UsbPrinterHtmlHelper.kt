@@ -25,42 +25,46 @@ object UsbPrinterHtmlHelper {
         val pageWidthPx = (pageWidthMm * 7.2).toInt() // 203dpi: 1mm ≈ 7.2px
 
         val result = Arguments.createMap()
-        try {
-            val webView = android.webkit.WebView(context)
-            webView.settings.javaScriptEnabled = true
-            webView.setBackgroundColor(0xFFFFFFFF.toInt())
-            webView.layout(0, 0, pageWidthPx, 6000) // Usa pageWidth convertido para px
-            var bitmap: android.graphics.Bitmap? = null
-            val latch = java.util.concurrent.CountDownLatch(1)
-            webView.webViewClient = object : android.webkit.WebViewClient() {
-                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        try {
-                            val width = webView.width
-                            val height = webView.contentHeight * webView.scale.toInt()
-                            bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
-                            val canvas = android.graphics.Canvas(bitmap!!)
-                            webView.draw(canvas)
-                        } catch (_: Exception) {}
-                        latch.countDown()
-                    }, 500) // Pequeno delay para garantir renderização
+        val latch = java.util.concurrent.CountDownLatch(1)
+        val bitmapHolder = arrayOfNulls<Bitmap>(1)
+
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val webView = WebView(context)
+                webView.settings.javaScriptEnabled = true
+                webView.setBackgroundColor(0xFFFFFFFF.toInt())
+                webView.layout(0, 0, pageWidthPx, 6000) // Usa pageWidth convertido para px
+                webView.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            try {
+                                val width = webView.width
+                                val height = webView.contentHeight * webView.scale.toInt()
+                                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                                val canvas = android.graphics.Canvas(bitmap)
+                                webView.draw(canvas)
+                                bitmapHolder[0] = bitmap
+                            } catch (_: Exception) {}
+                            latch.countDown()
+                        }, 500) // Pequeno delay para garantir renderização
+                    }
                 }
+                webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            } catch (e: Exception) {
+                latch.countDown()
             }
-            webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-            latch.await()
-            if (bitmap != null) {
-                // return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
-                 result.putBoolean("success", true)
-                result.putString("message", "HTML renderizado com sucesso.")
-                return result
-            } else {
-                result.putBoolean("success", false)
-                result.putString("message", "Erro ao renderizar HTML para bitmap.")
-            }
-        } catch (e: Exception) {
-            result.putBoolean("success", false)
-            result.putString("message", "Erro ao renderizar HTML: ${e.localizedMessage}")
         }
-        return result
+
+        latch.await()
+
+        val bitmap = bitmapHolder[0]
+
+       if (bitmap != null) {
+            return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
+        } else {
+            result.putBoolean("success", false)
+            result.putString("message", "Erro ao renderizar HTML para bitmap.")
+            return  result
+        }
     }
 }

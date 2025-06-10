@@ -45,7 +45,6 @@ export async function sendRawData(data: PrinterOptionsRawData) {
       beep: data.beep,
       cut: data.cut,
       tailingLine: data.tailingLine,
-      encoding: data.encoding,
     }),
     data.productId
   );

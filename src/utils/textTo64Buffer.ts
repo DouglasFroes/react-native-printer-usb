@@ -1,13 +1,12 @@
 // textTo64Buffer.ts
 // Implementação mínima de Buffer.from para React Native (apenas utf-8)
-function encodeTextToBuffer(text: string, encoding: string): Uint8Array {
-  if (
-    encoding &&
-    encoding.toLowerCase() !== 'utf8' &&
-    encoding.toLowerCase() !== 'utf-8'
-  ) {
-    throw new Error('Apenas encoding UTF-8 é suportado nesta implementação.');
+/* eslint-disable no-bitwise */
+function encodeTextToBuffer(text: string): Uint8Array {
+  // Sempre usa UTF-8, com suporte total a caracteres especiais/unicode
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(text);
   }
+  // Fallback manual (mantém implementação anterior)
   // Converte string para array de bytes utf-8
   const utf8: number[] = [];
   for (let i = 0; i < text.length; i++) {
@@ -55,30 +54,36 @@ class SimpleBufferHelper {
   }
 }
 
+function removerCaracteresEspeciais(texto: string) {
+  return texto
+    .normalize('NFD') // Decompõe caracteres acentuados em base + diacrítico
+    .replace(/[\u0300-\u036f]/g, ''); // Remove os diacríticos
+}
+
 // Função independente para converter texto em base64 buffer para impressoras térmicas
 // Remove BufferEncoding do tipo PrinterOptions, pois não existe no ambiente React Native
 export interface PrinterOptions {
   beep?: boolean;
   cut?: boolean;
   tailingLine?: boolean;
-  encoding?: string; // string simples, ex: 'utf-8', 'ascii', 'utf16le'
 }
 
 const defaultOptions: Required<PrinterOptions> = {
   beep: false,
   cut: false,
   tailingLine: false,
-  encoding: 'UTF8',
 };
 
 export function textTo64Buffer(
-  text: string,
+  text1: string,
   opts: PrinterOptions = {}
 ): string {
   const options = { ...defaultOptions, ...opts };
   const fixAndroid = '\n';
   const bufferHelper = new SimpleBufferHelper();
-  bufferHelper.concat(encodeTextToBuffer(text + fixAndroid, options.encoding));
+  // Remove caracteres especiais do texto
+  const text = removerCaracteresEspeciais(text1);
+  bufferHelper.concat(encodeTextToBuffer(text + fixAndroid));
   if (options.tailingLine) {
     bufferHelper.concat(new Uint8Array([10, 10, 10, 10, 10]));
   }
@@ -91,22 +96,49 @@ export function textTo64Buffer(
   // Converte para base64 manualmente
   const buffer = bufferHelper.toBuffer();
   // btoa espera string, então convertemos para string binária
-  let binary = '';
-  for (let i = 0; i < buffer.length; i++) {
-    binary += String.fromCharCode(buffer[i]!);
-  }
   // Polyfill base64 (não depende de btoa)
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let str = binary;
-  let output = '';
-  for (
-    let block = 0, charCode, i = 0, map = chars;
-    str.charAt(i | 0) || ((map = '='), i % 1);
-    output += map.charAt(63 & (block >> (8 - (i % 1) * 8)))
-  ) {
-    charCode = str.charCodeAt((i += 3 / 4));
-    block = (block << 8) | (charCode & 0xff);
+  // Usa encodeURIComponent/unescape para garantir suporte a caracteres especiais
+  // Corrige para base64 seguro para unicode
+  // Usa apenas encodeURIComponent + atob polyfill universal
+  function toBase64(uint8: Uint8Array): string {
+    let binary = '';
+    for (let i = 0; i < uint8.length; i++) {
+      binary += String.fromCharCode(uint8[i]!);
+    }
+    // Converte binário para base64 de forma universal (sem btoa/unescape)
+    if (typeof Buffer !== 'undefined') {
+      // Node.js ou ambiente com Buffer
+      return Buffer.from(uint8).toString('base64');
+    }
+    // Polyfill universal
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let output = '';
+    let i = 0;
+    while (i < binary.length) {
+      const c1 = binary.charCodeAt(i++) & 0xff;
+      if (i === binary.length) {
+        output += chars.charAt(c1 >> 2);
+        output += chars.charAt((c1 & 0x3) << 4);
+        output += '==';
+        break;
+      }
+      const c2 = binary.charCodeAt(i++) & 0xff;
+      if (i === binary.length) {
+        output += chars.charAt(c1 >> 2);
+        output += chars.charAt(((c1 & 0x3) << 4) | ((c2 & 0xf0) >> 4));
+        output += chars.charAt((c2 & 0xf) << 2);
+        output += '=';
+        break;
+      }
+      const c3 = binary.charCodeAt(i++) & 0xff;
+      output += chars.charAt(c1 >> 2);
+      output += chars.charAt(((c1 & 0x3) << 4) | ((c2 & 0xf0) >> 4));
+      output += chars.charAt(((c2 & 0xf) << 2) | ((c3 & 0xc0) >> 6));
+      output += chars.charAt(c3 & 0x3f);
+    }
+    return output;
   }
-  return output;
+  const base64 = toBase64(buffer);
+  return base64;
 }
