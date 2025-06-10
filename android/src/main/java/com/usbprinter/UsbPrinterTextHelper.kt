@@ -15,6 +15,8 @@ object UsbPrinterTextHelper {
         val font = if (options.hasKey("font")) options.getString("font") else null
         val cut = if (options.hasKey("cut")) options.getBoolean("cut") else null
         val beep = if (options.hasKey("beep")) options.getBoolean("beep") else null
+        val underline = if (options.hasKey("underline")) options.getBoolean("underline") else null
+        val tailingLine = if (options.hasKey("tailingLine")) options.getBoolean("tailingLine") else null
         val result = Arguments.createMap()
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         try {
@@ -45,10 +47,15 @@ object UsbPrinterTextHelper {
             // Negrito
             if (bold == true) commands.addAll(listOf(0x1B, 0x45, 0x01).map { it.toByte() })
             else if (bold == false) commands.addAll(listOf(0x1B, 0x45, 0x00).map { it.toByte() })
+            // Sublinhado
+            if (underline == true) commands.addAll(listOf(0x1B, 0x2D, 0x01).map { it.toByte() })
+            else if (underline == false) commands.addAll(listOf(0x1B, 0x2D, 0x00).map { it.toByte() })
             // Texto
             val textBytes = if (encoding != null) text.toByteArray(Charsets.UTF_8) else text.toByteArray()
             commands.addAll(textBytes.toList())
             commands.add(0x0A)
+            // Tailing line
+            if (tailingLine == true) commands.addAll(listOf(0x0A, 0x0A, 0x0A).map { it.toByte() })
             // Beep
             if (beep == true) commands.addAll(listOf(0x1B, 0x42, 0x03, 0x01).map { it.toByte() })
             // Corte
