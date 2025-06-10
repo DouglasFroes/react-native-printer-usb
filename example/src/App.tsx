@@ -18,7 +18,7 @@ import {
   qrCode,
   reset,
   sendRawData,
-} from 'react-native-usb-printer';
+} from 'react-native-printer-usb';
 import { commands } from '../../src/utils/commands';
 import { imageBase64 } from './img64';
 

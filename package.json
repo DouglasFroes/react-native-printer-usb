@@ -1,5 +1,5 @@
 {
-  "name": "react-native-usb-printer",
+  "name": "react-native-printer-usb",
   "version": "0.1.0",
   "description": "React Native module to print on USB thermal printers",
   "main": "./lib/module/index.js",
@@ -32,7 +32,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace react-native-usb-printer-example",
+    "example": "yarn workspace react-native-printer-usb-example",
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
@@ -47,14 +47,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DouglasFroes/react-native-usb-printer.git"
+    "url": "git+https://github.com/DouglasFroes/react-native-printer-usb.git"
   },
   "author": "Douglas Froes <douglassantosfroes@gmail.com> (https://github.com/DouglasFroes)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/DouglasFroes/react-native-usb-printer/issues"
+    "url": "https://github.com/DouglasFroes/react-native-printer-usb/issues"
   },
-  "homepage": "https://github.com/DouglasFroes/react-native-usb-printer#readme",
+  "homepage": "https://github.com/DouglasFroes/react-native-printer-usb#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

@@ -10557,9 +10557,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-usb-printer-example@workspace:example":
+"react-native-printer-usb-example@workspace:example":
   version: 0.0.0-use.local
-  resolution: "react-native-usb-printer-example@workspace:example"
+  resolution: "react-native-printer-usb-example@workspace:example"
   dependencies:
     "@babel/core": ^7.25.2
     "@babel/preset-env": ^7.25.3
@@ -10578,9 +10578,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"react-native-usb-printer@workspace:.":
+"react-native-printer-usb@workspace:.":
   version: 0.0.0-use.local
-  resolution: "react-native-usb-printer@workspace:."
+  resolution: "react-native-printer-usb@workspace:."
   dependencies:
     "@commitlint/config-conventional": ^19.6.0
     "@eslint/compat": ^1.2.7
