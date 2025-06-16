@@ -4,7 +4,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import android.util.Log
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Arguments
 import android.net.Uri
@@ -18,6 +22,7 @@ import java.io.FileOutputStream
 import com.usbprinter.UtilsImage
 
 object UsbPrinterImageHelper {
+    private const val TAG = "UsbPrinterImageHelper"
     /**
      * Imprime uma imagem a partir de um base64 PNG/JPG.
      */
@@ -88,69 +93,186 @@ object UsbPrinterImageHelper {
     }
 
     /**
-     * Converte o Bitmap para comandos ESC/POS e envia para a impressora.
+     * Converte o Bitmap para comandos ESC/POS e envia para a impressora G250.
      */
-    fun printBitmap(context: Context, bitmap: Bitmap?, device: android.hardware.usb.UsbDevice, align: String? = null): WritableMap {
+    fun printBitmap(context: Context, bitmap: Bitmap?, device: UsbDevice, align: String? = null): WritableMap {
         val result = Arguments.createMap()
         if (bitmap == null) {
             result.putBoolean("success", false)
             result.putString("message", "Bitmap inválido ou nulo.")
             return result
         }
-        var connection: android.hardware.usb.UsbDeviceConnection? = null
+
+        val connectionData = establishPrinterConnection(context, device)
+        if (connectionData == null) {
+            result.putBoolean("success", false)
+            result.putString("message", "Falha ao conectar com a impressora G250 para imagem")
+            return result
+        }
+
         try {
-            val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-            connection = usbManager.openDevice(device)
-            val usbInterface = device.getInterface(0)
-            val endpoint = usbInterface.getEndpoint(0)
-            connection.claimInterface(usbInterface, true)
+            // Comando de inicialização ESC/POS para G250
+            val initCommands = mutableListOf<Byte>()
+            initCommands.addAll(listOf(0x1B, 0x40).map { it.toByte() }) // ESC @ - Reset
+            sendDataInChunks(connectionData.connection, connectionData.endpoint, initCommands.toByteArray())
+            Thread.sleep(100) // Aguarda reset
 
             // Configuração de alinhamento
-            val CENTER_ALIGN = byteArrayOf(0x1B, 0x61, 0x01)
-            val LEFT_ALIGN = byteArrayOf(0x1B, 0x61, 0x00)
-            if (align == "center") {
-                connection.bulkTransfer(endpoint, CENTER_ALIGN, CENTER_ALIGN.size, 1000)
-            } else {
-                connection.bulkTransfer(endpoint, LEFT_ALIGN, LEFT_ALIGN.size, 1000)
+            val alignCommands = when (align) {
+                "center" -> byteArrayOf(0x1B, 0x61, 0x01)
+                "right" -> byteArrayOf(0x1B, 0x61, 0x02)
+                else -> byteArrayOf(0x1B, 0x61, 0x00) // left
             }
+            sendDataInChunks(connectionData.connection, connectionData.endpoint, alignCommands)
 
             // Configuração de espaçamento de linha
-            val SET_LINE_SPACE_24 = byteArrayOf(0x1B, 0x33, 24)
-            val SET_LINE_SPACE_32 = byteArrayOf(0x1B, 0x33, 32)
-            val LINE_FEED = byteArrayOf(0x0A)
-            connection.bulkTransfer(endpoint, SET_LINE_SPACE_24, SET_LINE_SPACE_24.size, 1000)
+            val setLineSpace24 = byteArrayOf(0x1B, 0x33, 24)
+            sendDataInChunks(connectionData.connection, connectionData.endpoint, setLineSpace24)
 
             val imageWidth = bitmap.width
             val imageHeight = bitmap.height
             val pixels = UtilsImage.getPixelsSlow(bitmap, imageWidth, imageHeight)
+
+            Log.d(TAG, "Printing image ${imageWidth}x${imageHeight} to G250")
 
             // Para cada fatia vertical de 24 linhas
             for (y in 0 until imageHeight step 24) {
                 // Comando ESC * para modo bit image
                 val nL = (imageWidth and 0xFF).toByte()
                 val nH = ((imageWidth shr 8) and 0xFF).toByte()
-                val SELECT_BIT_IMAGE_MODE = byteArrayOf(0x1B, 0x2A, 33, nL, nH)
-                connection.bulkTransfer(endpoint, SELECT_BIT_IMAGE_MODE, SELECT_BIT_IMAGE_MODE.size, 1000)
+                val selectBitImageMode = byteArrayOf(0x1B, 0x2A, 33, nL, nH)
+                sendDataInChunks(connectionData.connection, connectionData.endpoint, selectBitImageMode)
 
-                // Para cada coluna da imagem
+                // Para cada coluna da imagem - enviar em chunks menores para G250
+                val sliceData = mutableListOf<Byte>()
                 for (x in 0 until imageWidth) {
                     val slice = UtilsImage.recollectSlice(y, x, pixels)
-                    connection.bulkTransfer(endpoint, slice, slice.size, 1000)
+                    sliceData.addAll(slice.toList())
+
+                    // Envia em chunks de 100 bytes para G250
+                    if (sliceData.size >= 100) {
+                        sendDataInChunks(connectionData.connection, connectionData.endpoint, sliceData.toByteArray())
+                        sliceData.clear()
+                    }
                 }
-                connection.bulkTransfer(endpoint, LINE_FEED, LINE_FEED.size, 1000)
+
+                // Envia dados restantes
+                if (sliceData.isNotEmpty()) {
+                    sendDataInChunks(connectionData.connection, connectionData.endpoint, sliceData.toByteArray())
+                }
+
+                // Line feed após cada fatia
+                val lineFeed = byteArrayOf(0x0A)
+                sendDataInChunks(connectionData.connection, connectionData.endpoint, lineFeed)
             }
-            connection.bulkTransfer(endpoint, SET_LINE_SPACE_32, SET_LINE_SPACE_32.size, 1000)
-            connection.bulkTransfer(endpoint, LINE_FEED, LINE_FEED.size, 1000)
+
+            // Restaura espaçamento normal
+            val setLineSpace32 = byteArrayOf(0x1B, 0x33, 32)
+            sendDataInChunks(connectionData.connection, connectionData.endpoint, setLineSpace32)
+            val finalLineFeed = byteArrayOf(0x0A)
+            sendDataInChunks(connectionData.connection, connectionData.endpoint, finalLineFeed)
 
             result.putBoolean("success", true)
-            result.putString("message", "Imagem impressa com sucesso.")
+            result.putString("message", "Imagem impressa com sucesso na G250.")
         } catch (e: Exception) {
+            Log.e(TAG, "Error printing image to G250", e)
             result.putBoolean("success", false)
-            result.putString("message", "Erro ao imprimir imagem: ${e.localizedMessage}")
+            result.putString("message", "Erro ao imprimir imagem na G250: ${e.localizedMessage}")
         } finally {
-            try { connection?.releaseInterface(device.getInterface(0)) } catch (_: Exception) {}
-            try { connection?.close() } catch (_: Exception) {}
+            closeConnection(connectionData)
         }
         return result
+    }
+
+    private data class ConnectionData(
+        val connection: UsbDeviceConnection,
+        val endpoint: UsbEndpoint,
+        val usbInterface: UsbInterface
+    )
+
+    private fun establishPrinterConnection(context: Context, device: UsbDevice): ConnectionData? {
+        val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+
+        try {
+            val connection = usbManager.openDevice(device) ?: run {
+                Log.e(TAG, "Failed to open USB device for image printing")
+                return null
+            }
+
+            // Tenta várias interfaces para G250
+            for (interfaceIndex in 0 until device.interfaceCount) {
+                val usbInterface = device.getInterface(interfaceIndex)
+                Log.d(TAG, "Trying interface $interfaceIndex for image printing")
+
+                // Procura endpoint OUT para impressão
+                for (endpointIndex in 0 until usbInterface.endpointCount) {
+                    val endpoint = usbInterface.getEndpoint(endpointIndex)
+                    if (endpoint.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
+                        Log.d(TAG, "Found OUT endpoint for image printing")
+
+                        if (connection.claimInterface(usbInterface, true)) {
+                            Log.d(TAG, "Successfully claimed interface for G250 image printing")
+                            return ConnectionData(connection, endpoint, usbInterface)
+                        } else {
+                            Log.w(TAG, "Failed to claim interface for image printing")
+                        }
+                    }
+                }
+            }
+
+            Log.e(TAG, "No suitable interface found for G250 image printing")
+            connection.close()
+            return null
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error establishing connection for G250 image printing", e)
+            return null
+        }
+    }
+
+    private fun sendDataInChunks(connection: UsbDeviceConnection, endpoint: UsbEndpoint, data: ByteArray): Boolean {
+        try {
+            val chunkSize = 64 // Tamanho pequeno para G250
+            var offset = 0
+
+            while (offset < data.size) {
+                val remainingBytes = data.size - offset
+                val currentChunkSize = minOf(chunkSize, remainingBytes)
+                val chunk = data.copyOfRange(offset, offset + currentChunkSize)
+
+                val bytesTransferred = connection.bulkTransfer(endpoint, chunk, chunk.size, 5000)
+                if (bytesTransferred < 0) {
+                    Log.e(TAG, "Failed to transfer image data chunk to G250 at offset $offset")
+                    return false
+                }
+
+                offset += currentChunkSize
+
+                // Delay entre chunks para G250
+                if (offset < data.size) {
+                    Thread.sleep(5) // Delay menor para imagens
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending image data chunks to G250", e)
+            return false
+        }
+    }
+
+    private fun closeConnection(connectionData: ConnectionData?) {
+        connectionData?.let {
+            try {
+                it.connection.releaseInterface(it.usbInterface)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing interface for image printing", e)
+            }
+
+            try {
+                it.connection.close()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error closing connection for image printing", e)
+            }
+        }
     }
 }

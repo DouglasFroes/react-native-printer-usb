@@ -6,10 +6,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Arguments
 
 object UsbPrinterHtmlHelper {
+    private const val TAG = "UsbPrinterHtmlHelper"
     /**
      * Renderiza HTML em um bitmap e imprime na impressora USB.
      * @param context Contexto Android
@@ -63,11 +65,13 @@ object UsbPrinterHtmlHelper {
         val bitmap = bitmapHolder[0]
 
         if (bitmap != null) {
+            Log.d(TAG, "HTML rendered successfully, printing to G250")
             return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
         } else {
+            Log.e(TAG, "Failed to render HTML to bitmap for G250")
             result.putBoolean("success", false)
-            result.putString("message", "Erro ao renderizar HTML para bitmap.")
-            return  result
+            result.putString("message", "Erro ao renderizar HTML para bitmap na G250.")
+            return result
         }
     }
 }
