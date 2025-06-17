@@ -2,43 +2,62 @@ package com.usbprinter
 
 import android.content.Context
 import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbManager
-import com.facebook.react.bridge.Arguments
+import android.util.Log
 import com.facebook.react.bridge.WritableMap
 
 object UsbPrinterCutHelper {
+    private const val TAG = "UsbPrinterCutHelper"
+
     fun printCut(context: Context, tailingLine: Boolean, beep: Boolean, device: UsbDevice): WritableMap {
-        val result = Arguments.createMap()
-        var connection: android.hardware.usb.UsbDeviceConnection? = null
-        try {
-            val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-            connection = usbManager.openDevice(device)
-            val usbInterface = device.getInterface(0)
-            val endpoint = usbInterface.getEndpoint(0)
-            connection.claimInterface(usbInterface, true)
-            if (tailingLine) {
-                val feed = byteArrayOf(0x1B, 0x64, 0x05)
-                connection.bulkTransfer(endpoint, feed, feed.size, 2000)
-            }
-            if (beep) {
-                val beepCmd = byteArrayOf(0x1B, 0x42, 0x03, 0x01)
-                connection.bulkTransfer(endpoint, beepCmd, beepCmd.size, 2000)
-            }
-            val cut = byteArrayOf(0x1D, 0x56, 0x00)
-            connection.bulkTransfer(endpoint, cut, cut.size, 2000)
-            result.putBoolean("success", true)
-            result.putString("message", "Corte realizado com sucesso.")
-        } catch (e: Exception) {
-            result.putBoolean("success", false)
-            result.putString("message", "Erro ao cortar: ${e.localizedMessage}")
-        } finally {
-            try {
-                connection?.releaseInterface(device.getInterface(0))
-            } catch (_: Exception) {}
-            try {
-                connection?.close()
-            } catch (_: Exception) {}
+        Log.d(TAG, "Iniciando operação de corte (tailingLine: $tailingLine, beep: $beep)")
+
+        val connectionData = UsbConnectionHelper.establishPrinterConnection(context, device)
+        if (connectionData == null) {
+            return UsbConnectionHelper.createErrorResponse("Falha ao conectar com a impressora para corte")
         }
-        return result
+
+        try {
+            // Inicializa a impressora
+            if (!UsbConnectionHelper.initializePrinter(connectionData.connection, connectionData.endpoint)) {
+                return UsbConnectionHelper.createErrorResponse("Falha na inicialização da impressora para corte")
+            }
+
+            val commands = mutableListOf<Byte>()
+
+            // Adiciona alimentação de papel se solicitado
+            if (tailingLine) {
+                Log.d(TAG, "Adicionando alimentação de papel")
+                commands.addAll(listOf(0x1B, 0x64, 0x05).map { it.toByte() }) // ESC d (feed lines)
+            }
+
+            // Adiciona beep se solicitado
+            if (beep) {
+                Log.d(TAG, "Adicionando comando de beep")
+                commands.addAll(listOf(0x1B, 0x42, 0x03, 0x01).map { it.toByte() }) // ESC B (beep)
+            }
+
+            // Comando de corte
+            Log.d(TAG, "Adicionando comando de corte")
+            commands.addAll(listOf(0x1D, 0x56, 0x00).map { it.toByte() }) // GS V (full cut)
+
+            Log.i(TAG, "Enviando ${commands.size} bytes para operação de corte")
+            val success = UsbConnectionHelper.sendDataInChunks(
+                connectionData.connection,
+                connectionData.endpoint,
+                commands.toByteArray()
+            )
+
+            return if (success) {
+                UsbConnectionHelper.createSuccessResponse("Corte realizado com sucesso")
+            } else {
+                UsbConnectionHelper.createErrorResponse("Falha ao enviar comando de corte")
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao realizar corte: ${e.message}", e)
+            return UsbConnectionHelper.createErrorResponse("Erro ao cortar: ${e.localizedMessage}")
+        } finally {
+            UsbConnectionHelper.closeConnection(connectionData)
+        }
     }
 }

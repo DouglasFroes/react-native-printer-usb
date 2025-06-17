@@ -92,8 +92,7 @@ object UsbPrinterImageHelper {
         }
     }
 
-    /**
-     * Converte o Bitmap para comandos ESC/POS e envia para a impressora G250.
+    /**     * Converte o Bitmap para comandos ESC/POS e envia para a impressora.
      */
     fun printBitmap(context: Context, bitmap: Bitmap?, device: UsbDevice, align: String? = null): WritableMap {
         val result = Arguments.createMap()
@@ -106,12 +105,12 @@ object UsbPrinterImageHelper {
         val connectionData = establishPrinterConnection(context, device)
         if (connectionData == null) {
             result.putBoolean("success", false)
-            result.putString("message", "Falha ao conectar com a impressora G250 para imagem")
+            result.putString("message", "Falha ao conectar com a impressora para imagem")
             return result
         }
 
         try {
-            // Comando de inicialização ESC/POS para G250
+            // Comando de inicialização ESC/POS
             val initCommands = mutableListOf<Byte>()
             initCommands.addAll(listOf(0x1B, 0x40).map { it.toByte() }) // ESC @ - Reset
             sendDataInChunks(connectionData.connection, connectionData.endpoint, initCommands.toByteArray())
@@ -133,7 +132,7 @@ object UsbPrinterImageHelper {
             val imageHeight = bitmap.height
             val pixels = UtilsImage.getPixelsSlow(bitmap, imageWidth, imageHeight)
 
-            Log.d(TAG, "Printing image ${imageWidth}x${imageHeight} to G250")
+            Log.d(TAG, "Printing image ${imageWidth}x${imageHeight}")
 
             // Para cada fatia vertical de 24 linhas
             for (y in 0 until imageHeight step 24) {
@@ -143,13 +142,13 @@ object UsbPrinterImageHelper {
                 val selectBitImageMode = byteArrayOf(0x1B, 0x2A, 33, nL, nH)
                 sendDataInChunks(connectionData.connection, connectionData.endpoint, selectBitImageMode)
 
-                // Para cada coluna da imagem - enviar em chunks menores para G250
+                // Para cada coluna da imagem - enviar em chunks menores
                 val sliceData = mutableListOf<Byte>()
                 for (x in 0 until imageWidth) {
                     val slice = UtilsImage.recollectSlice(y, x, pixels)
                     sliceData.addAll(slice.toList())
 
-                    // Envia em chunks de 100 bytes para G250
+                    // Envia em chunks de 100 bytes
                     if (sliceData.size >= 100) {
                         sendDataInChunks(connectionData.connection, connectionData.endpoint, sliceData.toByteArray())
                         sliceData.clear()
@@ -173,11 +172,11 @@ object UsbPrinterImageHelper {
             sendDataInChunks(connectionData.connection, connectionData.endpoint, finalLineFeed)
 
             result.putBoolean("success", true)
-            result.putString("message", "Imagem impressa com sucesso na G250.")
+            result.putString("message", "Imagem impressa com sucesso.")
         } catch (e: Exception) {
-            Log.e(TAG, "Error printing image to G250", e)
+            Log.e(TAG, "Error printing image", e)
             result.putBoolean("success", false)
-            result.putString("message", "Erro ao imprimir imagem na G250: ${e.localizedMessage}")
+            result.putString("message", "Erro ao imprimir imagem: ${e.localizedMessage}")
         } finally {
             closeConnection(connectionData)
         }
@@ -199,7 +198,7 @@ object UsbPrinterImageHelper {
                 return null
             }
 
-            // Tenta várias interfaces para G250
+            // Tenta várias interfaces para impressoras térmicas USB
             for (interfaceIndex in 0 until device.interfaceCount) {
                 val usbInterface = device.getInterface(interfaceIndex)
                 Log.d(TAG, "Trying interface $interfaceIndex for image printing")
@@ -211,7 +210,7 @@ object UsbPrinterImageHelper {
                         Log.d(TAG, "Found OUT endpoint for image printing")
 
                         if (connection.claimInterface(usbInterface, true)) {
-                            Log.d(TAG, "Successfully claimed interface for G250 image printing")
+                            Log.d(TAG, "Successfully claimed interface for thermal printer image printing")
                             return ConnectionData(connection, endpoint, usbInterface)
                         } else {
                             Log.w(TAG, "Failed to claim interface for image printing")
@@ -220,19 +219,19 @@ object UsbPrinterImageHelper {
                 }
             }
 
-            Log.e(TAG, "No suitable interface found for G250 image printing")
+            Log.e(TAG, "No suitable interface found for thermal printer image printing")
             connection.close()
             return null
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error establishing connection for G250 image printing", e)
+            Log.e(TAG, "Error establishing connection for thermal printer image printing", e)
             return null
         }
     }
 
     private fun sendDataInChunks(connection: UsbDeviceConnection, endpoint: UsbEndpoint, data: ByteArray): Boolean {
         try {
-            val chunkSize = 64 // Tamanho pequeno para G250
+            val chunkSize = 64 // Tamanho pequeno para máxima compatibilidade
             var offset = 0
 
             while (offset < data.size) {
@@ -242,20 +241,20 @@ object UsbPrinterImageHelper {
 
                 val bytesTransferred = connection.bulkTransfer(endpoint, chunk, chunk.size, 5000)
                 if (bytesTransferred < 0) {
-                    Log.e(TAG, "Failed to transfer image data chunk to G250 at offset $offset")
+                    Log.e(TAG, "Failed to transfer image data chunk at offset $offset")
                     return false
                 }
 
                 offset += currentChunkSize
 
-                // Delay entre chunks para G250
+                // Delay entre chunks para impressoras térmicas
                 if (offset < data.size) {
                     Thread.sleep(5) // Delay menor para imagens
                 }
             }
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error sending image data chunks to G250", e)
+            Log.e(TAG, "Error sending image data chunks to thermal printer", e)
             return false
         }
     }

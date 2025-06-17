@@ -63,14 +63,13 @@ object UsbPrinterHtmlHelper {
         latch.await()
 
         val bitmap = bitmapHolder[0]
-
         if (bitmap != null) {
-            Log.d(TAG, "HTML rendered successfully, printing to G250")
+            Log.d(TAG, "HTML rendered successfully, printing")
             return UsbPrinterImageHelper.printBitmap(context, bitmap, device, align)
         } else {
-            Log.e(TAG, "Failed to render HTML to bitmap for G250")
+            Log.e(TAG, "Failed to render HTML to bitmap")
             result.putBoolean("success", false)
-            result.putString("message", "Erro ao renderizar HTML para bitmap na G250.")
+            result.putString("message", "Erro ao renderizar HTML para bitmap.")
             return result
         }
     }

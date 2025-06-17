@@ -1,13 +1,8 @@
 package com.usbprinter
 
 import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbDeviceConnection
-import android.hardware.usb.UsbEndpoint
-import android.hardware.usb.UsbInterface
-import android.hardware.usb.UsbManager
 import android.content.Context
 import android.util.Log
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 
@@ -25,23 +20,15 @@ object UsbPrinterTextHelper {
         val beep = if (options.hasKey("beep")) options.getBoolean("beep") else null
         val underline = if (options.hasKey("underline")) options.getBoolean("underline") else null
         val tailingLine = if (options.hasKey("tailingLine")) options.getBoolean("tailingLine") else null
-        val result = Arguments.createMap()
 
-        val connectionData = establishPrinterConnection(context, device)
+        val connectionData = UsbConnectionHelper.establishPrinterConnection(context, device)
         if (connectionData == null) {
-            result.putBoolean("success", false)
-            result.putString("message", "Falha ao conectar com a impressora G250")
-            return result
+            return UsbConnectionHelper.createErrorResponse("Falha ao conectar com a impressora")
         }
 
         try {
-            // Comando de inicialização ESC/POS para G250
-            val initCommands = mutableListOf<Byte>()
-            initCommands.addAll(listOf(0x1B, 0x40).map { it.toByte() }) // ESC @ - Reset
-            sendDataInChunks(connectionData.connection, connectionData.endpoint, initCommands.toByteArray())
-            Thread.sleep(100) // Aguarda reset
-
             val commands = mutableListOf<Byte>()
+
             // Alinhamento
             when (align) {
                 "center" -> commands.addAll(listOf(0x1B, 0x61, 0x01).map { it.toByte() })
@@ -65,9 +52,7 @@ object UsbPrinterTextHelper {
             else if (bold == false) commands.addAll(listOf(0x1B, 0x45, 0x00).map { it.toByte() })
             // Sublinhado
             if (underline == true) commands.addAll(listOf(0x1B, 0x2D, 0x01).map { it.toByte() })
-            else if (underline == false) commands.addAll(listOf(0x1B, 0x2D, 0x00).map { it.toByte() })
-
-            // Texto com codificação adequada para G250
+            else if (underline == false) commands.addAll(listOf(0x1B, 0x2D, 0x00).map { it.toByte() })            // Texto com codificação adequada
             val textBytes = when (encoding?.lowercase()) {
                 "cp850" -> text.toByteArray(Charsets.ISO_8859_1) // Aproximação
                 "iso-8859-1" -> text.toByteArray(Charsets.ISO_8859_1)
@@ -84,116 +69,20 @@ object UsbPrinterTextHelper {
             // Corte
             if (cut == true) commands.addAll(listOf(0x1D, 0x56, 0x00).map { it.toByte() })
 
-            Log.d(TAG, "Sending ${commands.size} bytes to G250 printer")
-            val success = sendDataInChunks(connectionData.connection, connectionData.endpoint, commands.toByteArray())
+            Log.d(TAG, "Sending ${commands.size} bytes to thermal printer")
+            val success = UsbConnectionHelper.sendDataInChunks(connectionData.connection, connectionData.endpoint, commands.toByteArray())
 
             if (success) {
-                result.putBoolean("success", true)
-                result.putString("message", "Texto impresso com sucesso na G250.")
+                return UsbConnectionHelper.createSuccessResponse("Texto impresso com sucesso")
             } else {
-                result.putBoolean("success", false)
-                result.putString("message", "Falha ao enviar dados para a G250")
+                return UsbConnectionHelper.createErrorResponse("Falha ao enviar dados para a impressora")
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error printing text to G250", e)
-            result.putBoolean("success", false)
-            result.putString("message", "Erro ao imprimir na G250: ${e.localizedMessage}")
+            Log.e(TAG, "Error printing text", e)
+            return UsbConnectionHelper.createErrorResponse("Erro ao imprimir: ${e.localizedMessage}")
         } finally {
-            closeConnection(connectionData)
-        }
-        return result
-    }
-
-    private data class ConnectionData(
-        val connection: UsbDeviceConnection,
-        val endpoint: UsbEndpoint,
-        val usbInterface: UsbInterface
-    )
-
-    private fun establishPrinterConnection(context: Context, device: UsbDevice): ConnectionData? {
-        val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-
-        try {
-            val connection = usbManager.openDevice(device) ?: run {
-                Log.e(TAG, "Failed to open USB device")
-                return null
-            }
-
-            // Tenta várias interfaces para G250
-            for (interfaceIndex in 0 until device.interfaceCount) {
-                val usbInterface = device.getInterface(interfaceIndex)
-                Log.d(TAG, "Trying interface $interfaceIndex with ${usbInterface.endpointCount} endpoints")
-
-                // Procura endpoint OUT para impressão
-                for (endpointIndex in 0 until usbInterface.endpointCount) {
-                    val endpoint = usbInterface.getEndpoint(endpointIndex)
-                    if (endpoint.direction == android.hardware.usb.UsbConstants.USB_DIR_OUT) {
-                        Log.d(TAG, "Found OUT endpoint at interface $interfaceIndex")
-
-                        if (connection.claimInterface(usbInterface, true)) {
-                            Log.d(TAG, "Successfully claimed interface for G250")
-                            return ConnectionData(connection, endpoint, usbInterface)
-                        } else {
-                            Log.w(TAG, "Failed to claim interface $interfaceIndex")
-                        }
-                    }
-                }
-            }
-
-            Log.e(TAG, "No suitable interface found for G250")
-            connection.close()
-            return null
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error establishing connection to G250", e)
-            return null
-        }
-    }
-
-    private fun sendDataInChunks(connection: UsbDeviceConnection, endpoint: UsbEndpoint, data: ByteArray): Boolean {
-        try {
-            val chunkSize = 64 // Tamanho pequeno para G250
-            var offset = 0
-
-            while (offset < data.size) {
-                val remainingBytes = data.size - offset
-                val currentChunkSize = minOf(chunkSize, remainingBytes)
-                val chunk = data.copyOfRange(offset, offset + currentChunkSize)
-
-                val bytesTransferred = connection.bulkTransfer(endpoint, chunk, chunk.size, 5000)
-                if (bytesTransferred < 0) {
-                    Log.e(TAG, "Failed to transfer chunk to G250 at offset $offset")
-                    return false
-                }
-
-                offset += currentChunkSize
-
-                // Delay entre chunks para G250
-                if (offset < data.size) {
-                    Thread.sleep(10)
-                }
-            }
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending data chunks to G250", e)
-            return false
-        }
-    }
-
-    private fun closeConnection(connectionData: ConnectionData?) {
-        connectionData?.let {
-            try {
-                it.connection.releaseInterface(it.usbInterface)
-            } catch (e: Exception) {
-                Log.w(TAG, "Error releasing interface", e)
-            }
-
-            try {
-                it.connection.close()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error closing connection", e)
-            }
+            UsbConnectionHelper.closeConnection(connectionData)
         }
     }
 }
